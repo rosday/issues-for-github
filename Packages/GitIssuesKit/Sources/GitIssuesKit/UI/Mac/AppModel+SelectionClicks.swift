@@ -20,6 +20,8 @@ extension AppModel {
     /// A plain click on an issue opens it, and the picked issues go: the click is about this one now, as a click on
     /// another file is in the Finder.
     func openFromClick(_ item: Item) {
+        // The release of a deep press, which has opened the peek instead.
+        guard !deepPress.openedPeek else { return }
         clearSelection()
         open(item)
     }
@@ -28,6 +30,12 @@ extension AppModel {
     /// dropdown changes every picked one, so they stay picked; on any other, they go.
     func releaseSelection(unlessPicked item: Item) {
         if !isSelected(item.id) { clearSelection() }
+    }
+
+    /// A plain click on a part of a sub-issue on an issue's page, as on a list's row: on a picked one the dropdown
+    /// changes every picked one, so they stay picked; on any other, they go.
+    func releaseSubIssuePicks(unlessPicked item: Item) {
+        if !pickedSubIssueIds.contains(item.id) { pickedSubIssueIds = [] }
     }
 
     /// The same on a sub-issue on an issue's page, among `order`, the sub-issues as listed there. One that is on

@@ -116,7 +116,11 @@ struct MobileRoot: View {
         }
         .onChange(of: model.status.idRemaps) { _, remaps in
             model.follow(remaps: remaps)
-            navigation.follow(remaps: remaps)
+            navigation.follow(remaps: IssueReference.observedRemaps(remaps, in: model.allItems))
+        }
+        .onChange(of: model.allItems) { previous, items in
+            // Each iPad window follows the issue independently when one of its project cards disappears.
+            navigation.follow(remaps: IssueReference.replacements(from: previous, to: items, projects: model.projects, remaps: model.status.idRemaps))
         }
         .onChange(of: model.milestoneMove) { _, move in
             guard let move else { return }
@@ -413,10 +417,8 @@ struct MainTabs: View {
 
     /// A view's layout, as the sidebar's icons are images.
     private func layoutImage(of view: ProjectView) -> Image {
-        if view.layout == .roadmap, model.display(of: view).layout == nil {
-            return Image(uiImage: PlanningImages.roadmap(scheme))
-        }
-        return Image(systemName: model.layout(of: view) == .board ? "rectangle.split.3x1" : "list.bullet")
+        guard let symbol = model.layoutSymbol(of: view) else { return Image(uiImage: PlanningImages.roadmap(scheme)) }
+        return Image(systemName: symbol)
     }
 
     /// A board's next milestones in the sidebar, and the one on screen while it stays there: completed or renamed
@@ -694,6 +696,7 @@ struct MobileCommands: Commands {
             .keyboardShortcut("n", modifiers: .command)
             .disabled(navigation == nil || !model.signedIn || model.openProjects.isEmpty)
         }
+        UndoCommands(model: model)
         CommandMenu(Text(.goMenu)) {
             let unavailable = navigation == nil || !model.signedIn
             // The board is on wide windows only, and switches the project on screen.

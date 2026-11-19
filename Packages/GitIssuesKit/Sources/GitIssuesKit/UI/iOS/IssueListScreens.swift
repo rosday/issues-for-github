@@ -318,7 +318,7 @@ struct ProjectScreen: View {
                         // The view open, which the sidebar lists under the project; the project itself before
                         // GitHub's views are read.
                         if let view = model.currentView(projectId: project.id) {
-                            ViewLayoutGlyph(view: view)
+                            ViewLayoutIcon(view: view)
                                 .foregroundStyle(Theme.textSecondary)
                             Text(view.name)
                                 .font(.headline)
@@ -616,7 +616,7 @@ struct IssueList: View {
     private func row(_ item: Item, in section: ListSection) -> some View {
         let nested = section.nesting.nestedCounts[item.id]
         let folded = section.nesting.folded.contains(item.id)
-        let depth = min(section.nesting.depth(of: item.id), IssueRow.deepestIndent)
+        let place = section.nesting.place(of: item.id)
         let epic = model.epic(of: item)?.contentId
         return Button {
             openRoute(.issue(item.id))
@@ -625,30 +625,23 @@ struct IssueList: View {
                 item: item, showsProject: showsProject,
                 namesBoard: !(scope == .myIssues && model.mineDisplay.grouping == .project),
                 namesRepository: isAllIssues,
-                place: section.nesting.place(of: item.id), nested: nested,
+                place: place, nested: nested,
                 folded: folded,
                 // Under its parent or its epic's header, the parent goes without saying.
                 showsParent: section.nesting.namesParent(of: item) && section.kind != .epic(contentId: item.parentId)
                     && section.kind != .group(.parent(contentId: item.parentId)),
                 showsMilestone: showsMilestone,
                 showsEpic: section.kind != .epic(contentId: epic) && section.nesting.groupOf[item.id] == nil,
-                chips: model.fieldChips(of: item, in: scope)
+                chips: model.fieldChips(of: item, in: scope),
+                showsType: !model.typeIsImplied(for: item, in: scope)
             )
         }
         .buttonStyle(RowButtonStyle())
-        // The arrow left of the status icon folds the sub-issues hanging under the issue in or out.
-        .overlay(alignment: .topLeading) {
-            if let nested {
-                Button {
-                    foldFeedback += 1
-                    model.toggleFolded(item)
-                } label: {
-                    Color.clear.frame(width: 44 + CGFloat(depth) * IssueRow.indent, height: 44).contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(folded ? Text(.unfoldSubIssuesTooltip(count: nested)) : Text(.foldSubIssuesTooltip))
-                .accessibilityIdentifier("fold-\(item.displayNumber)")
-            }
+        .issueRowControls(
+            item, place: place, nested: nested, folded: folded, changesStatus: model.canToggleDone(item),
+            spokenStatus: model.spokenStatus(of: item), fold: { model.toggleFolded(item) }
+        ) {
+            StatusMenuItems(item: item)
         }
         .listRowInsets(EdgeInsets())
         .listRowSeparator(.hidden)

@@ -569,6 +569,28 @@ final class PhoneTests: AppTestCase {
         XCTAssertEqual(box.value as? String, "Checked")
     }
 
+    func testLinkToAnotherIssueOpensItInTheApp() {
+        launch()
+        wait(element("row-#9"))
+        scrollTo(element("row-#14"))
+        element("row-#14").tap()
+        let title = element("issue-title")
+        wait(title)
+        waitForValue(title, containing: "Sign in with GitHub")
+
+        // The description starts with a link to its epic.
+        let description = element("issue-description")
+        wait(description)
+        description.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: 40, dy: 10)).tap()
+        waitForValue(element("issue-title"), containing: "Sign-in and accounts")
+        XCTAssertEqual(app.state, .runningForeground, "the link stays in the app")
+        XCTAssertFalse(element("writing-bar-done").exists, "a tap on a link doesn't start typing")
+
+        // Back leads to the issue the link was in.
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        waitForValue(element("issue-title"), containing: "Sign in with GitHub")
+    }
+
     func testCommentsAndSubIssues() {
         launch()
         element("row-#9").tap()
@@ -962,17 +984,20 @@ final class PhoneTests: AppTestCase {
         wait(button("Status"))
         snapshot("Long-press menu")
         XCTAssertTrue(button("Priority").exists)
-        XCTAssertTrue(button("Copy Link").exists)
-        XCTAssertTrue(button("Open on GitHub").exists)
-        XCTAssertTrue(labelled("Delete Issue", type: .button).exists)
         button("Status").tap()
         wait(button("In Review"))
         button("In Review").tap()
         waitForLabel(element("row-#8"), containing: "In Review")
 
+        // The menu is longer than the screen: it scrolls down to Delete at its end.
         row.press(forDuration: 1.2)
-        wait(button("Copy Link"))
-        button("Copy Link").tap()
+        wait(button("Status"))
+        scrollMenu(to: labelled("Delete Issue", type: .button))
+        XCTAssertTrue(button("Open on GitHub").isHittable)
+        snapshot("Long-press menu, scrolled to its end")
+        let copy = button("Copy Link")
+        XCTAssertTrue(copy.isHittable)
+        copy.tap()
         wait(labelled("Link copied"))
         snapshot("Link copied banner")
     }

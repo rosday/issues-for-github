@@ -9,7 +9,7 @@ enum MenuImages {
     private static var cache: [String: UIImage] = [:]
 
     static func status(_ glyph: StatusGlyph, _ scheme: ColorScheme) -> Image {
-        image("status-\(glyph.category.rawValue)-\(glyph.progress)-\(key(glyph.color, scheme))", scheme) {
+        image("status-\(glyph.category.rawValue)-\(glyph.progress)-\(glyph.addsToProject)-\(key(glyph.color, scheme))", scheme) {
             StatusIcon(glyph: glyph, size: 16)
         }
     }
@@ -20,9 +20,23 @@ enum MenuImages {
         }
     }
 
+    /// A milestone's diamond in its mark's colour, as the Mac's menus and every other view show it.
+    static func milestone(_ mark: MilestoneMark, _ scheme: ColorScheme) -> Image {
+        image("milestone-\(mark)", scheme) {
+            MilestoneIcon(mark: mark, size: 15)
+        }
+    }
+
     static func label(_ hex: String, _ scheme: ColorScheme) -> Image {
         image("label-\(hex)", scheme) {
             Circle().fill(Theme.labelColor(hex)).frame(width: 10, height: 10)
+        }
+    }
+
+    /// An issue type's square in its colour, or its outline for no type.
+    static func issueType(_ color: String?, empty: Bool = false, _ scheme: ColorScheme) -> Image {
+        image("issue-type-\(color ?? "none")-\(empty)", scheme) {
+            IssueTypeSquare(color: color, empty: empty, size: 10).frame(width: 16, height: 16)
         }
     }
 

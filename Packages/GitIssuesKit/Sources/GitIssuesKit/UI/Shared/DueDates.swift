@@ -149,14 +149,15 @@ extension AppModel {
     }
 
     /// The same for issues whose dates are `current` (one value when they share it), such as a new issue's.
-    func dueDateItems(current: Set<String?>, today: CalendarDay = .today()) -> [PickerItem] {
+    func dueDateItems(current: Set<String?>, today: CalendarDay = .today(), clearTitle: String? = nil) -> [PickerItem] {
         var rows = DueDateParser.quickPicks(today: today).map { suggestion in
             dueDateRow(suggestion, selected: current == [suggestion.day.string], today: today)
         }
         if current.contains(where: { $0 != nil }) {
             rows.append(PickerItem(
-                id: "", title: String(localized: .removeDueDateRow),
-                icon: AnyView(Image(systemName: "xmark").font(.system(size: 11, weight: .medium)).foregroundStyle(Theme.textSecondary))
+                id: "", title: clearTitle ?? String(localized: .removeDueDateRow),
+                // As the menus and the palette mark taking the date off.
+                icon: AnyView(Image(systemName: "calendar.badge.minus").font(.system(size: 12, weight: .medium)).foregroundStyle(Theme.textSecondary))
             ))
         }
         return rows
@@ -242,6 +243,30 @@ struct DueEntryBanner: View {
             .buttonStyle(.bordered)
             .controlSize(.small)
         #endif
+    }
+}
+
+extension DueBadge {
+    /// The colour of a due date shown as a property, beside its name: its tone's while it asks for attention, overdue
+    /// or today; else the property's own. Cards and rows, which are read at a glance, colour every date.
+    var emphasis: Color? {
+        tone == .overdue || tone == .today ? tone.color : nil
+    }
+}
+
+/// A due date as a property shows it, in the Mac's inspector and peek and in iPhone and iPad's properties column: the
+/// calendar in the date's tone, then the day with its weekday, coloured only while it asks for attention.
+struct DueDateValue: View {
+    var due: DueBadge
+    var iconSize: CGFloat = 12
+
+    var body: some View {
+        HStack(spacing: 7) {
+            DueDateIcon(tone: due.tone, size: iconSize)
+            Text(due.day.mediumLabel())
+                .foregroundStyle(due.emphasis.map(AnyShapeStyle.init) ?? AnyShapeStyle(.foreground))
+        }
+        .help(due.tooltip)
     }
 }
 

@@ -124,6 +124,9 @@ struct ItemMenuContent: View {
         }
         if item.kind != .draft {
             AssigneeMenu(item: item)
+            if targets.contains(where: model.canHaveIssueType), !model.issueTypes(for: item).isEmpty {
+                IssueTypeMenu(item: item)
+            }
             LabelsMenu(item: item)
             if let viewer = model.viewer {
                 let mine = targets.allSatisfy { target in target.assignees.contains { $0.id == viewer.id } }
@@ -223,11 +226,56 @@ struct RelationMenuItems: View {
     }
 }
 
+/// The type as a submenu: none and the repository's types, with the one the picked issues share checked.
+struct IssueTypeMenu: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.colorScheme) private var scheme
+    var item: Item
+
+    var body: some View {
+        let names = Set(model.targets(for: item).map(\.issueType))
+        Menu {
+            Picker(.issueTypeTitle, selection: Binding(
+                get: { names.count == 1 ? names.first ?? nil : String?.some(MilestoneMenu.mixed) },
+                set: { new in
+                    let current = model.item(id: item.id) ?? item
+                    model.setIssueType(of: model.targets(for: current), named: new)
+                }
+            )) {
+                Label {
+                    Text(.noIssueType)
+                } icon: {
+                    MenuImages.issueType(nil, empty: true, scheme)
+                }
+                .tag(String?.none)
+                ForEach(model.issueTypes(for: item)) { type in
+                    Label {
+                        Text(type.name)
+                    } icon: {
+                        MenuImages.issueType(type.color, scheme)
+                    }
+                    .tag(Optional(type.name))
+                }
+            }
+            .pickerStyle(.inline)
+        } label: {
+            Label {
+                Text(.issueTypeTitle)
+                if let type = item.issueType { Text(type) }
+            } icon: {
+                MenuImages.issueType(item.issueTypeColor, empty: item.issueType == nil, scheme)
+            }
+        }
+        .onAppear { model.loadRepoMeta(for: item) }
+    }
+}
+
 /// The milestone as a submenu: none, the open ones with the current one checked, and a new one. With several picked
 /// issues, the one they share is checked.
 struct MilestoneMenu: View {
     @Environment(AppModel.self) private var model
     @Environment(MobileNavigation.self) private var navigation
+    @Environment(\.colorScheme) private var scheme
     var item: Item
 
     var body: some View {
@@ -242,13 +290,18 @@ struct MilestoneMenu: View {
                     model.setMilestone(of: model.targets(for: current), to: new.flatMap { name in groups.first { $0.title == name } })
                 }
             )) {
-                Label(.noMilestone, systemImage: "diamond").tag(String?.none)
+                Label {
+                    Text(.noMilestone)
+                } icon: {
+                    MenuImages.milestone(.none, scheme)
+                }
+                .tag(String?.none)
                 ForEach(groups.filter { $0.isOpen || $0.title == title }) { group in
                     Label {
                         Text(group.title)
                         if let due = group.due { Text(due.mediumLabel()) }
                     } icon: {
-                        Image(systemName: group.isOpen ? model.isCurrentMilestone(group, projectId: item.projectId) ? "diamond.inset.filled" : "diamond" : "diamond.fill")
+                        MenuImages.milestone(model.mark(of: group, projectId: item.projectId), scheme)
                     }
                     .tag(Optional(group.title))
                 }
@@ -606,8 +659,9 @@ struct IssuePreview: View {
                     }
                 }
                 if let due = model.dueBadge(for: item) {
-                    PropertyChip(text: due.label, tint: due.tone == .overdue || due.tone == .today ? due.tone.color : nil) {
-                        DueDateIcon(tone: due.tone, size: 12)
+                    // As the issue's own chip shows it.
+                    PropertyChip(text: due.day.mediumLabel(), tint: due.emphasis) {
+                        DueDateIcon(tone: due.tone, size: 13)
                     }
                 }
             }

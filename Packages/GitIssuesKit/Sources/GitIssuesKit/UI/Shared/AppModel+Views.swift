@@ -513,6 +513,9 @@ extension AppModel {
         let context = filterContext(projectId: field.projectId)
         switch field.kind {
         case .title: return .text(item.title)
+        case .multiSelect:
+            let ids = context?.value(of: field, in: item)?.optionIds ?? []
+            return ids.isEmpty ? nil : .text(field.options.filter { ids.contains($0.id) }.map(\.name).joined(separator: ", "))
         case .assignees: return item.assignees.first.map { .text($0.login) }
         case .labels: return item.labels.first.map { .text($0.name) }
         case .milestone:
@@ -722,8 +725,9 @@ extension AppModel {
             }
             empty = items.filter { $0.repoId == nil }
         case .issueType:
-            for type in Set(items.compactMap(\.issueType)).sorted() {
-                groups.append((.issueType(type), type, .plain, nil, items.filter { $0.issueType == type }))
+            let colors = issueTypeColors(of: items)
+            for type in colors.keys.sorted() {
+                groups.append((.issueType(type), type, .issueType(colors[type] ?? nil), nil, items.filter { $0.issueType == type }))
             }
             empty = items.filter { $0.issueType == nil }
         default:
@@ -807,6 +811,23 @@ extension AppModel {
 
     /// The chips a card or row shows for the project's own fields, in the view's order: only in the project's view,
     /// not in lists that mix projects or show a milestone.
+    /// The types among these issues, each with its colour as far as one of them knows it.
+    func issueTypeColors(of items: [Item]) -> [String: String?] {
+        var colors: [String: String?] = [:]
+        for item in items {
+            guard let type = item.issueType else { continue }
+            if colors[type] == nil || colors[type] == .some(nil) { colors[type] = .some(item.issueTypeColor) }
+        }
+        return colors
+    }
+
+    /// Whether the list `item` is shown in says its type already, by being grouped by type.
+    func typeIsImplied(for item: Item, in scope: Scope?) -> Bool {
+        guard let projectId = item.projectId, scope == .project(projectId), let view = currentView(projectId: projectId),
+              layout(of: view) != .board else { return false }
+        return groupField(of: view)?.kind == .issueType
+    }
+
     func fieldChips(of item: Item, in scope: Scope?) -> [FieldChip] {
         guard let projectId = item.projectId, scope == .project(projectId), let view = currentView(projectId: projectId),
               let context = filterContext(projectId: projectId) else { return [] }
@@ -821,6 +842,10 @@ extension AppModel {
             case .singleSelect:
                 guard let option = field.options.first(where: { $0.id == value.optionId }) else { return nil }
                 return FieldChip(fieldId: field.id, text: option.name, icon: .option(color: option.color))
+            case .multiSelect:
+                let chosen = field.options.filter { value.optionIds?.contains($0.id) == true }
+                guard let first = chosen.first else { return nil }
+                return FieldChip(fieldId: field.id, text: chosen.map(\.name).formatted(.list(type: .and)), icon: .option(color: first.color))
             case .text:
                 return value.text.map { FieldChip(fieldId: field.id, text: $0, icon: .text) }
             case .number:
@@ -857,6 +882,10 @@ extension AppModel {
             guard item.priorityId != value?.optionId, let fieldId = project(of: item)?.priorityFieldId else { return [] }
             return [.setField(.init(itemId: item.id, projectId: projectId, fieldId: fieldId, kind: .priority, optionId: value?.optionId, base: item.priorityId))]
         }
+        if field.id == project(of: item)?.dueFieldId {
+            guard item.dueDate != value?.date else { return [] }
+            return [.setDate(.init(itemId: item.id, projectId: projectId, date: value?.date, base: item.dueDate))]
+        }
         let current = item.fieldValues[field.id]
         let next = (value?.isEmpty ?? true) ? nil : value
         guard current != next else { return [] }
@@ -864,6 +893,8 @@ extension AppModel {
             field.iterations.first { $0.id == id }?.title
         } else if let id = next?.optionId {
             field.options.first { $0.id == id }?.name
+        } else if let ids = next?.optionIds {
+            field.options.filter { ids.contains($0.id) }.map(\.name).formatted(.list(type: .and))
         } else {
             nil
         }

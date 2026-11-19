@@ -97,6 +97,8 @@ enum PickerKind: Hashable {
     case epic
     /// The iteration of one of the board's iteration fields it is planned for.
     case iteration(fieldId: String)
+    /// Its type, such as Bug or Feature.
+    case issueType
 
     var placeholder: String {
         switch self {
@@ -113,6 +115,7 @@ enum PickerKind: Hashable {
         case .milestone: String(localized: .moveToMilestonePlaceholder)
         case .epic: String(localized: .addToEpicPlaceholder)
         case .iteration: String(localized: .moveToIterationPlaceholder)
+        case .issueType: String(localized: .setIssueTypePlaceholder)
         }
     }
 
@@ -126,6 +129,7 @@ enum PickerKind: Hashable {
         case .dueDate: "D"
         case .milestone: "⇧M"
         case .iteration: "⇧C"
+        case .issueType: "T"
         case .subIssues, .parent, .addSubIssue, .blockedBy, .blocking, .epic: nil
         }
     }
@@ -148,6 +152,7 @@ enum PickerKind: Hashable {
         case .milestone: String(localized: .changeMilestone)
         case .epic: String(localized: .changeEpic)
         case .iteration: String(localized: .changeIteration)
+        case .issueType: String(localized: .changeIssueType)
         }
     }
 
@@ -301,6 +306,8 @@ extension AppModel {
             #endif
         case .milestone:
             return milestoneItems(for: item, targets: targets)
+        case .issueType:
+            return issueTypeItems(for: item, targets: targets)
         case .epic:
             return epicItems(for: item, targets: targets)
         case .iteration(let fieldId):
@@ -384,11 +391,21 @@ extension AppModel {
 
     /// The status as a chip or property shows it. An issue on none of your boards has none, only open or closed.
     func statusText(of item: Item) -> String {
+        // One known only from another issue's page is open or closed.
+        if item.isStandIn { return String(localized: item.isClosed ? .stateClosed : .stateOpen) }
         guard item.isOnBoard else {
             if item.state == "MERGED" { return String(localized: .stateMerged) }
             return item.isClosed ? String(localized: .stateClosed) : String(localized: .noProject)
         }
         return statusOption(of: item)?.name ?? String(localized: .noStatus)
+    }
+
+    /// What VoiceOver reads for the status of a row of issues, which shows the statuses to pick from: "Status of #12:
+    /// In Progress".
+    func spokenStatus(of item: Item) -> String {
+        let status = statusText(of: item)
+        guard let number = item.number else { return String(localized: .statusIs(status: status)) }
+        return String(localized: .subIssueStatusLabel(number: number, status: status))
     }
 
     func statusIsPlaceholder(_ item: Item) -> Bool {
@@ -444,6 +461,8 @@ extension AppModel {
             text = .addSubIssueButton
         case .milestone:
             text = milestoneTitle(of: item).map { .milestoneTooltip(milestone: $0) } ?? .noMilestone
+        case .issueType:
+            text = item.issueType.map { .issueTypeTooltip(type: $0) } ?? .noIssueType
         case .epic:
             text = epic(of: item).map { .epicTooltip(epic: $0.title) } ?? .noEpic
         case .iteration(let fieldId):
@@ -551,6 +570,8 @@ extension AppModel {
         case .iteration(let fieldId):
             guard let field = field(id: fieldId) else { return }
             setIteration(of: targets, field: field, to: field.iterations.first { $0.id == id })
+        case .issueType:
+            setIssueType(of: targets, named: issueTypes(for: current).first { $0.id == id }?.name)
         }
     }
 
@@ -565,6 +586,14 @@ extension AppModel {
         return matching.first { $0.projectId == projectId && $0.metaLoadedAt != nil }
             ?? matching.first { $0.metaLoadedAt != nil }
             ?? matching.first { $0.projectId == projectId }
+    }
+
+    /// The types an issue can be given. Epic isn't among them: Make Epic sets it, as it does the label.
+    func issueTypes(for item: Item) -> [IssueTypeRef] {
+        var types = repoMeta(projectId: item.projectId, repoId: item.repoId)?.issueTypes ?? []
+        // A repository none of your boards use.
+        if types.isEmpty, let repoId = item.repoId, let meta = otherRepoMeta[repoId] { types = meta.types }
+        return types.filter { !Item.isEpicType($0.name) }
     }
 
     func people(projectId: String?, repoId: String?) -> [Person] {
@@ -634,6 +663,25 @@ extension AppModel {
     }
 
     /// No milestone, the board's open milestones by date with the current one marked, and a new one.
+    /// No type, then the repository's types with the one the issues share checked.
+    fileprivate func issueTypeItems(for item: Item, targets: [Item]) -> [PickerItem] {
+        Self.issueTypeItems(issueTypes(for: item), current: Set(targets.map(\.issueType)))
+    }
+
+    static func issueTypeItems(_ types: [IssueTypeRef], current names: Set<String?>) -> [PickerItem] {
+        let none = PickerItem(
+            id: "", title: String(localized: .noIssueType), selected: names == [nil],
+            icon: AnyView(IssueTypeSquare(empty: true).frame(width: 14, height: 14)), shortcut: "0"
+        )
+        return [none] + types.enumerated().map { index, type in
+            PickerItem(
+                id: type.id, title: type.name, selected: names == [type.name],
+                icon: AnyView(IssueTypeSquare(color: type.color).frame(width: 14, height: 14)),
+                shortcut: index < 9 ? "\(index + 1)" : nil
+            )
+        }
+    }
+
     fileprivate func milestoneItems(for item: Item, targets: [Item]) -> [PickerItem] {
         let groups = milestoneGroups(for: item)
         let titles = Set(targets.map { milestoneTitle(of: $0) })

@@ -8,6 +8,32 @@ All notable changes to this project are recorded here. The format follows
 
 ### Added
 
+- **An issue's type, wherever the issue is.** GitHub's issue types, such as Bug, Feature and Task, show as a small square
+  in the type's colour and its name: first among the labels on cards and in the Mac's lists, right after the number in
+  the lists on iPhone and iPad, and among the properties on the issue's page. Click it, press `T`, use `⌘K` or the
+  right-click menu, or on iPhone and iPad the issue's page or touch and hold, to change the type or take it away, also
+  for several picked issues. A card still shows two tags at most, so the type can put a label behind "+1", and on a full
+  line the milestone gives way first. A label named like the type is left out of cards and rows. The filter menu and
+  lists grouped by type use the same squares.
+- **Undo and redo for what you do in the app.** `⌘Z` takes back the last change and `⌘⇧Z` brings it back, step by step,
+  on the Mac and on an iPad with a keyboard, and **Edit › Undo** and **Redo** name what they are about, such as **Undo
+  Change Status**. It works for an issue's status, priority, due date and project fields, its place on the board, title
+  and description, open or closed, assignees, labels, type, parent, blockers, milestone and epic; what you changed on
+  several picked issues at once is one step. It also takes back changes to a milestone, a board's columns (order, name,
+  colour, one added, an empty one deleted), a view's name, a project hidden from the sidebar, and in the Inbox marking
+  read or unread, snoozing, and for its few seconds archiving or unsubscribing. A short message says what happened.
+  Undoing is a change like any other: it reaches GitHub the same way, also after being offline. While you type, the keys
+  go on undoing your typing. A description you keep writing is one step. New issues, comments, deleted issues and issues
+  put on a board can't be taken back this way.
+- **An issue's fields, in every project it is on.** An issue's details now list its project's own fields: versions,
+  dates, iterations, text, numbers, single and multiple choice. Those with a value show, the rest wait behind **n more
+  fields**. The issue's other projects stand folded below with their status, and unfolded their fields can be changed
+  too; a status changed there moves that project's card and leaves the issue open or closed. **Add to project** puts the
+  issue on another project, and the × takes it off one, with **Undo** for five seconds before GitHub hears of it, since
+  the card's values go with it. On the Mac and a wide iPad this is in the inspector; on iPhone and narrow iPad windows,
+  under **Projects**.
+- **Press deeper to peek (Mac).** On a Force Touch trackpad, press an issue on a board or in a list until the second
+  click, and its peek opens instead of the issue. It stays open when you let go.
 - **Make a status where you pick one.** Type a name the board has no status of into any status picker, on the
   Mac (the dropdown, `S`, the right-click menu, `⌘K` and the new issue) or on iPhone and iPad (the Status sheet, and
   **New Status…** when you touch and hold an issue), and **Create status “…”** makes it in the project's Status field
@@ -19,19 +45,20 @@ All notable changes to this project are recorded here. The format follows
   the Statuses screen on iPhone and iPad have **Icon** too. GitHub has no icons, so yours are kept in iCloud; a status
   without one goes by its name, as before.
 - **Drop an issue onto another one to make it a sub-issue (Mac).** Drag a row of a list, a card of a board or an issue
-  in My Issues onto another issue, and it goes under that issue. Hold it over the middle of the issue: the issue lights
-  up, and on the board the card shrinks a little and says "Sub-issue of #9". Near the top or bottom edge of an issue,
-  or between issues, it still goes in front of or after it as before, and into another column or section. Picked
-  issues all go under it together. The dropped issue keeps its status and stays where it stands; a message says what
-  happened and takes it back with **Undo**. An issue can't go under itself or one of its own sub-issues, nor where
-  GitHub wouldn't take it: a pull request, a draft, a board you can only read, more than 100 sub-issues under one issue
-  or more than eight levels. On a board, dropping onto an epic's name makes the issue one of the epic's.
+  in My Issues onto another issue, and it goes under that issue. Hold it over the middle of the issue for a moment: the
+  issue lights up, and on the board the card shrinks a little and says "Sub-issue of #9". A card only passing over
+  issues on its way somewhere else lights none of them up. Near the top or bottom edge of an issue, or between issues,
+  it still goes in front of or after it as before, and into another column or section. Picked issues all go under it
+  together. The dropped issue keeps its status and stays where it stands; a message says what happened and takes it back
+  with **Undo**. An issue can't go under itself or one of its own sub-issues, nor where GitHub wouldn't take it: a pull
+  request, a draft, a board you can only read, more than 100 sub-issues under one issue or more than eight levels. On a
+  board, dropping onto an epic's name makes the issue one of the epic's.
 - **Drop a card onto another one to make it a sub-issue, on iPhone and iPad.** Touch and hold a card, drag it over the
-  middle of another card, and that card lights up with a tick; let go and the dragged issue becomes its sub-issue, with
-  a notice that can undo it. It works on every board: a view's, All Issues' and a milestone's. Only the parent changes:
-  the issue keeps its status, so one dropped onto an issue in another column goes back to its own. Over the top or
-  bottom edge of a card, or between cards, the card moves there as before. An issue never goes under itself or one of
-  its own sub-issues.
+  middle of another card and hold it there for a moment, and that card lights up with a tick; let go and the dragged
+  issue becomes its sub-issue, with a notice that can undo it. Cards it only passes over on its way stay as they are. It
+  works on every board: a view's, All Issues' and a milestone's. Only the parent changes: the issue keeps its status, so
+  one dropped onto an issue in another column goes back to its own. Over the top or bottom edge of a card, or between
+  cards, the card moves there as before. An issue never goes under itself or one of its own sub-issues.
 - **Put an issue into an iteration.** An issue's iteration is now one click or key away: the Iteration row on the
   issue's page, the iteration chip on a card or row (when the view shows it), the right-click menu, **Move to
   Iteration…** in the command palette, or `⇧C`, as in Linear. The picker lists the iteration under way and those to
@@ -80,6 +107,60 @@ All notable changes to this project are recorded here. The format follows
 
 ### Changed
 
+- **A quieter toolbar on the Mac.** New Issue moved from the sidebar to the toolbar, right after back and forward, so
+  it stays there when the sidebar is closed. The toolbar no longer repeats the page's name, its project and "Synced
+  just now": the sidebar already shows them.
+- **Links to other issues open in the app.** Click or tap a GitHub link to an issue in a description or a comment, on
+  the Mac, iPhone or iPad, and that issue opens right here, with Back leading to the one you came from. Links to issues
+  the app doesn't have, and all other links, still open in your browser.
+- **Sub-issues in a Mac list are indented as a whole.** A sub-issue's priority and number now move in with its status
+  and title, right of the line from its parent, so a row shows that it belongs there from its first icon, in lists and
+  among an issue's sub-issues. An epic's icon stands at the start of its row, where the line down to its issues begins,
+  with no empty space before it, and its name lines up with their priorities. Under the pointer the epic's name stands
+  in the middle of the grey highlight.
+- **Search moved to the top of the sidebar (Mac).** The magnifying glass in the toolbar is now a **Search** row above
+  the Inbox, with `⌘K` at its end. It opens the command palette, as before.
+- **The issue you are peeking at stays marked (Mac).** While the peek is open, its issue has a tint of the accent and a
+  ring in the accent, the same on board cards, list rows, My Issues and both timelines, also once the pointer has moved
+  away. `J` and `K` take the mark along. A picked issue keeps its own colour under the ring.
+- **The peek opens where a new issue does (Mac).** Space now shows the issue in the middle of the window, in the same
+  glass panel as a new issue, over the dimmed board or list, and only as tall as the issue needs. A click beside it puts
+  it away, as do Space and Esc; `J` `K` and the keys that change the issue work as before.
+
+- While you write a comment, `⌘↵` shows beside the send button, to say that it posts the comment: on the Mac, and on
+  iPhone and iPad with a keyboard attached.
+- **An issue looks the same wherever it is listed.** On an issue's page, its sub-issues, an epic's issues and the
+  issues it is blocked by or blocks are now the rows the lists show, on the Mac and on iPhone and iPad: priority,
+  number, status, title, sub-issues, the blocker's flag, labels, milestone, due date and people, in the list's order,
+  type and spacing. On the Mac a sub-issue's parts open their pickers as in the list, its checkbox or ⌘-click picks it,
+  picked ones fill with the accent, and a related issue's × to take it off the list stands where a row's checkbox
+  does. On iPhone and iPad a tap on any row's status circle, in the lists and search too, shows the statuses to pick
+  from, the arrow left of it folds what hangs under it, and touching and holding a sub-issue or a related issue shows
+  the preview as everywhere else. An issue known only from GitHub is such a row too, open or closed, and opens there.
+- **Labels look the same everywhere.** A label is a dot in its colour and its name, as on the board's cards, in the
+  Mac's lists, an issue's sub-issues, the inspector and the peek, and in iPhone and iPad's lists: no tinted pills and no
+  outlines. Under the pointer an issue's labels light up together in one grey capsule, as the one button that changes
+  them, and the properties in the Mac's inspector and peek light up in that grey too; `+2` says how many more there
+  are and opens them too. An epic's own label is left out on cards as well.
+- **Milestones, epics and fields read alike on rows and cards.** A milestone's diamond is grey in lists as on cards,
+  and only a late one keeps its colour; an epic is named in the grey of its name; a project field's chip is drawn as on
+  a card; a pull request has its mark in the Mac's list too. Picked rows show all of it in white. The due date's
+  calendar is drawn at the date's size, and as a property (inspector, peek, iPad's column, the long-press preview) a
+  due date reads the same everywhere, coloured only while overdue or today. iPhone and iPad menus show milestones with
+  their coloured diamonds, and their Inbox rows the issue's state before its title, as the Mac does.
+- **An epic's header is the same in every list and on every board**, on the Mac and on iPhone and iPad: the epic's icon
+  where the line down to its issues starts, its name in the type of a column's header, how many of its issues are there,
+  and at the end of the line the arrow that folds them away, always in sight and drawn like every other fold arrow.
+  Before, it came in four sizes, with its arrow in three different places. It sits a little closer to its issues than to
+  what is above it, and on the Mac it lights up under the pointer as a row does.
+- **An issue lights up the same way wherever you drop issues onto it**: a ring in the accent colour a little outside its
+  edge, over a light tint, on the Mac's boards, lists and My Issues and on iPhone and iPad's boards. Before, each place
+  had a ring of its own width and colour, and on iPhone and iPad the card also grew and took on the look of a picked card.
+- **A row dragged in the Mac's list lifts off as a card does on the board**: the lifted card's colour, round corners and
+  deep shadow, and no border. Picked rows carry the edge of a second card and how many they are, an epic's header lifts
+  off as the card its issues lift off as on the board, and held over an issue the smaller card says "Sub-issue of #9" as
+  the board's card does.
+- **Escape in an issue's title takes the edit back on iPhone and iPad too**, as on the Mac.
 - **Pickers offer the likeliest choice first.** The parent, epic, blocker, label and assignee you chose lately now come
   at the very top of their pickers, above **Remove from #…** and the current one, with the likeliest lit so `Return`
   takes it. A choice made twice in a row comes first and stays there when one issue in
@@ -101,6 +182,22 @@ All notable changes to this project are recorded here. The format follows
 
 ### Fixed
 
+- **A new issue always finds a repository.** On a project with no repository yet, the new issue form left the
+  repository and **Create issue** switched off, and on the Mac it didn't say why. Now you choose one of your
+  repositories right there, on Mac, iPhone and iPad: the issue is created in it and added to the project, which knows
+  that repository from then on. While the project is still loading, the form says so and fills in the repository by
+  itself, also in a draft you come back to. On the Mac, moving a new issue to a project with no repository no longer
+  leaves a **Create issue** that does nothing.
+- **`⌘⇧Z` no longer undoes an archived notification** in the Mac's Inbox: it is Redo now.
+- **A label recoloured or renamed on GitHub changes in the app too**, on every card and row, within a minute. GitHub
+  doesn't count that as a change of the issues, so they kept the old colour until something else about them changed.
+- **Switching boards on the Mac no longer crashes** while a column is adding cards.
+- **A third assignee no longer runs under the date** in a row of the Mac's list.
+- **An issue closed as a duplicate shows as canceled everywhere**, also when it is on none of your boards.
+- **A picked notification in the Mac's Inbox keeps the check of a done issue visible.**
+- **A disabled secondary button looks disabled.**
+- **On iPhone and iPad boards a sub-issue's line meets its card at the first line**, as on the Mac, not lower.
+- **A description written on iPhone or iPad while its new issue reaches GitHub is kept**, as on the Mac.
 - **Return in a picker opened over the pointer picks what is lit.** A picker that opened under a pointer at rest, such
   as **Set Parent Issue…** from the command palette, lit the row under the pointer instead of the recent choice, so
   `Return` could take an issue out of its parent instead of moving it to the one chosen last. Rows now light under the
@@ -116,6 +213,9 @@ All notable changes to this project are recorded here. The format follows
   row just out of view, which then showed it only once the pointer went over it. A part of a row lit under the
   pointer, such as its labels, no longer stays lit while the list scrolls under a resting pointer, nor moves on to
   other issues' rows.
+- Going back from an issue to a list on the Mac shows its rows as they should look. With the inspector beside the
+  issue, the rows kept part of their narrower picture until the pointer went over them: the repository and date stood
+  too far left, a trail of cut-off avatars ran across the row, and the line under a status's header came out dashed.
 - Dragging an issue in All Issues' list on the Mac no longer turns its row blank until you leave the list. The
   issue now moves as on All Issues' board: to another place or status, and one on no board onto the board with the
   status you drop it on. In My Issues, and in a project you can only read, a row lifts only where it can go under
