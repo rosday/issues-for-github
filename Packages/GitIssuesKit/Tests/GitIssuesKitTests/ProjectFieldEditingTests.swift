@@ -82,8 +82,9 @@ struct ProjectFieldEditingTests {
         #expect(ProjectFieldEditing.picked("", field: field, current: FieldValue(optionIds: ["ios"])) == nil)
     }
 
-    @Test("A status picked for another project moves that card and leaves the issue open or closed", arguments: [false, true])
-    func otherProjectStatus(closed: Bool) throws {
+    @Test("A grouped status changes the issue's open or closed state only for its primary project",
+          arguments: [false, true], [false, true])
+    func groupedStatus(closed: Bool, changesIssueState: Bool) throws {
         let f = try fixture()
         try f.model.db.writer.write { db in
             try FieldOption(id: "done", fieldId: f.field.id, projectId: "P", kind: .status, name: "Done", color: "PURPLE", descr: "", position: 1).insert(db)
@@ -93,12 +94,13 @@ struct ProjectFieldEditingTests {
         f.model.statusKinds.set(.completed, projectId: "P", optionId: "done")
         f.model.statusKinds.set(.unstarted, projectId: "P", optionId: "todo")
         f.model.reloadNow()
-        f.model.pickProjectField(closed ? "todo" : "done", target: f.target)
+        let optionId = closed ? "todo" : "done"
+        f.model.pickProjectField(optionId, target: f.target, changesIssueState: changesIssueState)
         let mutations = f.model.outbox.map(\.mutation)
-        #expect(mutations.count == 1)
+        #expect(mutations.count == (changesIssueState ? 2 : 1))
         guard case .setField(let change)? = mutations.first else { Issue.record("Expected a status change"); return }
-        #expect(change.optionId == (closed ? "todo" : "done"))
-        #expect(f.model.allItems.first?.isClosed == closed)
+        #expect(change.optionId == optionId)
+        #expect(f.model.allItems.first?.isClosed == (changesIssueState ? !closed : closed))
     }
 
     @Test("A multiple-choice field waits for its card to be read, so a pick can't replace what GitHub has")

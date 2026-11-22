@@ -14,7 +14,7 @@ struct IssuePropertyRow<Content: View>: View {
                 .font(.small)
                 .foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
-                .frame(width: labelWidth, alignment: .leading)
+                .frame(width: min(labelWidth, 110), alignment: .leading)
             content
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -22,105 +22,63 @@ struct IssuePropertyRow<Content: View>: View {
     }
 }
 
-/// The open projects an issue is on, in its details: the one it was opened from with the fields that have a value,
-/// the others folded under their name and status, and a way to add more.
-struct IssueProjectsProperties: View {
-    @Environment(AppModel.self) private var model
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    var item: Item
-    @Binding var labelWidth: CGFloat
-
-    var body: some View {
-        ForEach(IssueProjectSection.sections(for: item, items: model.allItems, projects: model.projects, fields: model.fields)) { section in
-            Group {
-                if section.isPrimary {
-                    PrimaryIssueProject(section: section, labelWidth: $labelWidth)
-                } else {
-                    OtherIssueProject(section: section, labelWidth: $labelWidth)
-                }
-            }
-            .transition(reduceMotion ? .identity : .opacity.combined(with: .offset(y: 6)))
-        }
-        if item.isOnBoard, item.kind != .draft, item.contentId != nil {
-            IssueProjectsButton(item: item)
-        }
-    }
-}
-
-private struct PrimaryIssueProject: View {
-    @Environment(AppModel.self) private var model
-    var section: IssueProjectSection
-    @Binding var labelWidth: CGFloat
-    @State private var hovering = false
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 1) {
-            IssuePropertyRow(title: Text(.project), labelWidth: $labelWidth) {
-                HStack(spacing: 8) {
-                    ProjectIcon(projectId: section.project.id)
-                    Text(section.project.title).lineLimit(1)
-                    Spacer(minLength: 4)
-                    RemoveProjectButton(section: section, visible: hovering)
-                }
-                .padding(.leading, 8)
-            }
-            .contentShape(Rectangle())
-            .onHover { hovering = $0 }
-            ProjectFieldRows(section: section, labelWidth: $labelWidth)
-        }
-    }
-}
-
-private struct OtherIssueProject: View {
-    @Environment(AppModel.self) private var model
+/// The issue's fields on one project, including those that are empty or absent from the board's current view.
+struct IssueProjectProperties: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var section: IssueProjectSection
     @Binding var labelWidth: CGFloat
     @State private var hovering = false
-
-    private var unfolded: Bool { model.isIssueProjectUnfolded(section) }
+    @State private var expanded = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: 1) {
-            HStack(spacing: 4) {
+            HStack(spacing: 8) {
                 Button {
-                    withAnimation(reduceMotion ? nil : Theme.spring) { model.toggleIssueProject(section) }
+                    withAnimation(reduceMotion ? nil : Theme.spring) { expanded.toggle() }
                 } label: {
                     HStack(spacing: 8) {
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 9, weight: .semibold))
-                            .foregroundStyle(Theme.textTertiary)
-                            .rotationEffect(.degrees(unfolded ? 90 : 0))
-                            .frame(width: 10)
                         ProjectIcon(projectId: section.project.id)
-                        Text(section.project.title).lineLimit(1)
+                        Text(section.project.title)
+                            .font(.smallMedium)
+                            .fixedSize(horizontal: false, vertical: true)
                         Spacer(minLength: 4)
-                        if !unfolded, section.project.statusFieldId != nil {
-                            StatusIcon(glyph: model.glyph(of: section.item))
-                            Text(model.statusText(of: section.item))
-                                .font(.small)
-                                .foregroundStyle(Theme.textSecondary)
-                                .lineLimit(1)
-                        }
                     }
-                    .frame(minHeight: 30)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(section.project.title)
-                .accessibilityValue(Text(unfolded ? .sectionOpen : .sectionFolded))
+                .accessibilityValue(Text(expanded ? .sectionOpen : .sectionFolded))
                 .accessibilityIdentifier("toggle-project-\(section.project.id)")
                 RemoveProjectButton(section: section, visible: hovering)
             }
+            .padding(.vertical, 8)
             .contentShape(Rectangle())
             .onHover { hovering = $0 }
-            if unfolded {
-                ProjectFieldRows(section: section, labelWidth: $labelWidth)
-                    .transition(.opacity)
+            VStack(alignment: .leading, spacing: 0) {
+                if expanded {
+                    fields.transition(.opacity)
+                }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .clipped()
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(section.project.title)
+    }
+
+    private var fields: some View {
+        VStack(alignment: .leading, spacing: 1) {
+            ForEach(section.fields) { field in
+                IssuePropertyRow(title: Text(verbatim: field.name), labelWidth: $labelWidth) {
+                    ProjectFieldProperty(section: section, field: field)
+                }
+            }
+            if !section.fields.contains(where: { $0.id == section.project.dueFieldId }) {
+                IssuePropertyRow(title: Text(.dueDate), labelWidth: $labelWidth) {
+                    ProjectDueDateProperty(item: section.item, canEdit: section.project.viewerCanUpdate)
+                }
+            }
+        }
     }
 }
 
@@ -139,44 +97,6 @@ private struct RemoveProjectButton: View {
             }
             .opacity(visible ? 1 : 0)
             .accessibilityIdentifier("remove-project-\(section.project.id)")
-        }
-    }
-}
-
-/// A project's fields with a value, and behind "n more fields" those without.
-private struct ProjectFieldRows: View {
-    @Environment(AppModel.self) private var model
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    var section: IssueProjectSection
-    @Binding var labelWidth: CGFloat
-
-    var body: some View {
-        let showsEmpty = model.showsEmptyFields(of: section)
-        // All of them in the project's order once they show, so a field doesn't jump when it gets a value.
-        ForEach(showsEmpty ? section.listedFields : section.filledFields) { field in
-            IssuePropertyRow(title: Text(verbatim: field.name), labelWidth: $labelWidth) {
-                ProjectFieldProperty(section: section, field: field)
-            }
-        }
-        if showsEmpty, section.offersDueField {
-            IssuePropertyRow(title: Text(.dueDate), labelWidth: $labelWidth) {
-                ProjectDueDateProperty(item: section.item, canEdit: section.project.viewerCanUpdate)
-            }
-        }
-        if section.hiddenCount > 0 {
-            IssuePropertyRow(title: Text(verbatim: ""), labelWidth: $labelWidth) {
-                Button {
-                    withAnimation(reduceMotion ? nil : Theme.spring) { model.toggleEmptyFields(of: section) }
-                } label: {
-                    (showsEmpty ? Text(.projectFieldsFewer) : Text(.projectFieldsMore(count: section.hiddenCount)))
-                        .foregroundStyle(Theme.textTertiary)
-                        .padding(.horizontal, 8)
-                        .frame(minHeight: 28)
-                        .hoverFill(radius: 8, fill: Theme.partHover)
-                }
-                .buttonStyle(PlainPressStyle())
-                .accessibilityIdentifier("project-more-fields-\(section.project.id)")
-            }
         }
     }
 }
@@ -292,7 +212,11 @@ private struct ProjectFieldProperty: View {
         .dropdown(isPresented: $open) { close in
             switch field.kind {
             case .singleSelect, .multiSelect, .iteration:
-                ProjectFieldChoicePicker(target: ProjectFieldTarget(item: section.item, fieldId: field.id), close: close)
+                ProjectFieldChoicePicker(
+                    target: ProjectFieldTarget(item: section.item, fieldId: field.id),
+                    changesIssueState: section.isPrimary,
+                    close: close
+                )
             case .date:
                 DueDatePicker(current: [value?.date], addsField: false, fieldName: field.name, onPick: { day in
                     save(day.map { FieldValue(date: $0.string) })
@@ -321,6 +245,7 @@ private struct ProjectFieldProperty: View {
 private struct ProjectFieldChoicePicker: View {
     @Environment(AppModel.self) private var model
     var target: ProjectFieldTarget
+    var changesIssueState: Bool
     var close: () -> Void
 
     var body: some View {
@@ -329,7 +254,7 @@ private struct ProjectFieldChoicePicker: View {
             PickerList(placeholder: field.name, items: model.projectFieldChoices(field: field, value: value), multiple: field.kind == .multiSelect,
                        creating: field.id == project.statusFieldId ? { model.newProjectStatusRow($0, target: target) } : nil,
                        onPick: { id in
-                model.pickProjectField(id, target: target)
+                model.pickProjectField(id, target: target, changesIssueState: changesIssueState)
             }, onClose: close)
             .disabled(!project.viewerCanUpdate)
             .onAppear {

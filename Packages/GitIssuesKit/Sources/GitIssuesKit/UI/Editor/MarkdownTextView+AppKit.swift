@@ -7,6 +7,10 @@ import AppKit
 final class MarkdownTextView: NSTextView {
     weak var controller: EditorController?
 
+    // AppKit otherwise puts typing actions on the window's undo stack, which outlives this editor.
+    private lazy var editingUndoManager = UndoManager()
+    override var undoManager: UndoManager? { editingUndoManager }
+
     /// True while the mouse button is down and AppKit is tracking a click or drag. Markdown doesn't show next to the
     /// caret until the button comes up, so selecting never moves text around under the pointer.
     private(set) var isTrackingMouse = false
@@ -128,6 +132,11 @@ final class MarkdownTextView: NSTextView {
         controller?.contextMenu(for: event, base: super.menu(for: event)) ?? super.menu(for: event)
     }
 
+    override func viewWillMove(toWindow newWindow: NSWindow?) {
+        if let window, window !== newWindow { clearUndo() }
+        super.viewWillMove(toWindow: newWindow)
+    }
+
     // The pointer isn't tracked in a window in the background, so nothing would hide the copy button there.
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
@@ -142,6 +151,12 @@ final class MarkdownTextView: NSTextView {
                 setSelectedRange(NSRange(location: (string as NSString).length, length: 0))
             }
         }
+    }
+
+    /// Drops all actions for the text being replaced or removed from the window.
+    func clearUndo() {
+        breakUndoCoalescing()
+        editingUndoManager.removeAllActions()
     }
 
     @objc private func windowResignedKey() {

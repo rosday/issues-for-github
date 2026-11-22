@@ -140,10 +140,11 @@ issue carries a red flag with the number of the issue to finish first, as in `#5
 line among its parent's sub-issues. Comments sit below, with the field
 for a new one at the bottom of the window (while you write, `⌘↵` beside its button says how to post without the
 mouse), and status, priority, assignees, labels, parent and blockers are in the
-inspector on the right (`⌃⌘I` hides it). It lists the fields of the issue's project too, those without
-a value behind **n more fields**, and the other projects the issue is on, folded under their name and status. **Add to
-project** puts the issue on another one, and the × takes it off, with a few seconds to undo. On iPhone and narrow iPad
-windows the same is under **Projects**. Step to the next issue with the arrows in the toolbar.
+inspector on the right (`⌃⌘I` hides it). Each project the issue is on has a section with all its fields, including empty
+ones. Click the project's name to fold or unfold its section. **Add to project** puts the issue on another one, and
+the × takes it off, with a few seconds to undo. On iPad and iPhone, empty values are behind **n more fields** and other
+projects are folded under their name and status. On iPhone and narrow iPad windows, find them under **Projects**.
+Step to the next issue with the arrows in the toolbar.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="Design/screenshots/issue-dark.webp">

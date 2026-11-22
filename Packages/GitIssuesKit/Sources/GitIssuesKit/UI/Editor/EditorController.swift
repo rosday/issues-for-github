@@ -168,7 +168,7 @@ final class EditorController: NSObject, @preconcurrency NSTextStorageDelegate, E
         previousSelection = NSRange(location: 0, length: 0)
         layoutManager.selectedRanges = []
         #else
-        clearUndo()
+        textView.clearUndo()
         #endif
         isLoading = false
         textView.textDidLoad()
@@ -204,7 +204,7 @@ final class EditorController: NSObject, @preconcurrency NSTextStorageDelegate, E
         undoStack.clear()
         openStep = nil
         #else
-        clearUndo()
+        textView.clearUndo()
         #endif
         editedMarks = nil
         isLoading = false

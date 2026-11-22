@@ -32,6 +32,8 @@ All notable changes to this project are recorded here. The format follows
 
 ### Changed
 
+- **Projects in an issue's Mac inspector each have an expandable section.** Open or close a section by clicking its
+  project name. Each section starts open and shows all of that project's fields.
 - **One filter button in place of Filter and Display.** At the right of the Mac's toolbar, Mail's filter symbol is
   filled in the accent colour while anything narrows the page. It opens one panel: Only My Issues, the filter of the
   view or of My Issues, and how they are displayed, with one **Reset** and one **Save for Everyone** for what you
@@ -62,6 +64,8 @@ All notable changes to this project are recorded here. The format follows
 
 ### Fixed
 
+- **Undo on the Mac keeps Markdown edits with the issue they belong to.** Switching issues or closing an editor no
+  longer leaves its typing history behind in the window, where pressing `⌘Z` could crash.
 - **The board scrolls sideways again on the Mac** when you hold a card at its left or right edge, or move the keyboard
   to a column out of sight. With the sidebar shown it stayed where it was, or stopped short of the column.
 - **A card's lines line up.** The names of a type and a milestone stood about a point above the labels and dates

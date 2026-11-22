@@ -55,25 +55,24 @@ extension AppModel {
         field.kind != .multiSelect || isDemo || item.remoteUpdatedAt != nil || item.isLocalOnly
     }
 
-    func pickProjectField(_ id: String, target: ProjectFieldTarget) {
+    func pickProjectField(_ id: String, target: ProjectFieldTarget, changesIssueState: Bool = false) {
         guard let item = item(targetedBy: target), let field = field(id: target.fieldId),
               field.projectId == item.projectId, let project = project(of: item), !project.closed,
               project.viewerCanUpdate else { return }
         if field.id == project.statusFieldId, let name = Self.newStatusName(id) {
-            createStatus(named: name, projectId: project.id, for: [item], changesIssueState: false)
+            createStatus(named: name, projectId: project.id, for: [item], changesIssueState: changesIssueState)
         } else {
             let value = IssueProjectSection(project: project, item: item, fields: []).value(of: field)
-            saveProjectField(target, value: ProjectFieldEditing.picked(id, field: field, current: value))
+            saveProjectField(target, value: ProjectFieldEditing.picked(id, field: field, current: value), changesIssueState: changesIssueState)
         }
     }
 
-    func saveProjectField(_ target: ProjectFieldTarget, value: FieldValue?) {
+    func saveProjectField(_ target: ProjectFieldTarget, value: FieldValue?, changesIssueState: Bool = false) {
         guard let item = item(targetedBy: target), let field = field(id: target.fieldId),
               field.projectId == item.projectId, let project = project(of: item), project.viewerCanUpdate,
               canEditValue(of: field, on: item) else { return }
-        if field.id == project.statusFieldId {
-            // Only other projects' statuses are edited here. They move that card and leave the issue, its parent and
-            // its epic as they are: the status of the project it was opened from decides those.
+        if field.id == project.statusFieldId, !changesIssueState {
+            // Other projects' statuses move their cards. The project the issue was opened from decides its state.
             let option = statusOptions(projectId: project.id).first { $0.id == value?.optionId }
             perform(statusMutations(item, option, changesIssueState: false), followingUp: false)
         } else {

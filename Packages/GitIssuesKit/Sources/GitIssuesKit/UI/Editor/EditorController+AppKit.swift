@@ -117,13 +117,6 @@ extension EditorController: NSTextViewDelegate {
         textView.window?.makeFirstResponder(nil)
     }
 
-    /// A text that came from elsewhere has nothing of the old one to undo.
-    func clearUndo() {
-        textView.breakUndoCoalescing()
-        textView.undoManager?.removeAllActions(withTarget: textView)
-        textView.undoManager?.removeAllActions(withTarget: storage)
-    }
-
     /// Changes the text the way typing does, so it can be undone. Where the text is only read (a checkbox ticked in a
     /// preview) it is changed directly.
     func performEdit(_ range: NSRange, with string: String) -> Bool {

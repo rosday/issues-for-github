@@ -469,6 +469,31 @@ final class EditorBehaviorTests: XCTestCase {
         XCTAssertEqual(h.text, "One two")
     }
 
+    func testUndoFromAClosedEditorDoesNotReachTheWindowOrNextEditor() throws {
+        let h = EditorHarness("Another issue")
+        let windowUndoManager = try XCTUnwrap(h.window.undoManager)
+        let previousUndoManager = try autoreleasepool {
+            let previous = EditorController(isEditable: true)
+            previous.load(text: "Previous issue")
+            h.scrollView.documentView?.addSubview(previous.textView)
+            XCTAssertTrue(h.window.makeFirstResponder(previous.textView))
+            let end = NSRange(location: previous.text.utf16.count, length: 0)
+            previous.textView.setSelectedRange(end)
+            previous.textView.insertText(" draft", replacementRange: end)
+            let undoManager = try XCTUnwrap(previous.textView.undoManager)
+            XCTAssertTrue(undoManager.canUndo)
+
+            XCTAssertTrue(h.window.makeFirstResponder(h.textView))
+            previous.textView.removeFromSuperview()
+            return undoManager
+        }
+        h.settle()
+
+        XCTAssertFalse(previousUndoManager.canUndo)
+        XCTAssertFalse(windowUndoManager.canUndo)
+        XCTAssertEqual(h.textView.undoManager?.canUndo, false)
+    }
+
     // MARK: - Text that is only read
 
     func testReadOnlyTextOpensNothingAndShowsNoMarkdown() {

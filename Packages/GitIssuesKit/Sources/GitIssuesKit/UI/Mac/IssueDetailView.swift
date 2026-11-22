@@ -737,22 +737,27 @@ struct IssueProperties: View {
     }
 
     private var properties: some View {
-        VStack(alignment: .leading, spacing: 1) {
+        let sections = IssueProjectSection.sections(for: item, items: model.allItems, projects: model.projects, fields: model.fields)
+        let primary = sections.first(where: \.isPrimary)
+        return VStack(alignment: .leading, spacing: 1) {
             Text(.issueDetailsHeading)
                 .font(.tinySemibold)
                 .foregroundStyle(Theme.textTertiary)
                 .padding(.bottom, 6)
-            row(.status) {
-                PropertyButton(kind: .status, item: item) {
-                    HStack(spacing: 8) {
-                        StatusIcon(glyph: model.glyph(of: item))
-                        // An issue on no board has no status; clicking here puts it on one.
-                        Text(model.statusText(of: item))
-                            .foregroundStyle(model.statusIsPlaceholder(item) ? Theme.textTertiary : Theme.text)
+            if primary?.fields.contains(where: { $0.id == primary?.project.statusFieldId }) != true {
+                row(.status) {
+                    PropertyButton(kind: .status, item: item) {
+                        HStack(spacing: 8) {
+                            StatusIcon(glyph: model.glyph(of: item))
+                            // An issue on no board has no status; clicking here puts it on one.
+                            Text(model.statusText(of: item))
+                                .foregroundStyle(model.statusIsPlaceholder(item) ? Theme.textTertiary : Theme.text)
+                        }
                     }
                 }
             }
-            if model.project(of: item)?.priorityFieldId != nil {
+            if let priorityFieldId = model.project(of: item)?.priorityFieldId,
+               primary?.fields.contains(where: { $0.id == priorityFieldId }) != true {
                 row(.priority) {
                     PropertyButton(kind: .priority, item: item) {
                         HStack(spacing: 8) {
@@ -792,7 +797,7 @@ struct IssueProperties: View {
                     }
                 }
             }
-            if model.canHaveDueDate(item) {
+            if primary == nil, model.canHaveDueDate(item) {
                 row(.dueDate) {
                     PropertyButton(kind: .dueDate, item: item) {
                         if let due = model.dueBadge(for: item) {
@@ -804,9 +809,8 @@ struct IssueProperties: View {
                 }
             }
 
-            Divider().padding(.vertical, 10)
-
             if let project = model.project(of: item), project.closed {
+                Divider().padding(.vertical, 10)
                 row(.project) {
                     HStack(spacing: 8) {
                         ProjectIcon(projectId: project.id)
@@ -814,17 +818,19 @@ struct IssueProperties: View {
                     }
                     .padding(.horizontal, 8)
                 }
-            } else if !item.isOnBoard, !model.boards(toAdd: item).isEmpty {
-                row(.project) {
-                    PropertyButton(kind: .status, item: item) {
-                        Text(.addToProjectPlaceholder).foregroundStyle(Theme.textTertiary)
-                    }
+            }
+            ForEach(sections) { section in
+                VStack(alignment: .leading, spacing: 1) {
+                    Divider().padding(.vertical, 10)
+                    IssueProjectProperties(section: section, labelWidth: $labelWidth)
                 }
+                .transition(reduceMotion ? .identity : .opacity.combined(with: .offset(y: 6)))
             }
-            IssueProjectsProperties(item: item, labelWidth: $labelWidth)
-            if item.isOnBoard {
+            if item.kind != .draft, item.contentId != nil {
                 Divider().padding(.vertical, 10)
+                IssueProjectsButton(item: item)
             }
+            Divider().padding(.vertical, 10)
             if model.canHaveMilestone(item) {
                 row(.milestone) {
                     PropertyButton(kind: .milestone, item: item) {
@@ -851,8 +857,10 @@ struct IssueProperties: View {
                     }
                 }
             }
-            ForEach(model.iterationFields(for: item)) { field in
-                iterationRow(field)
+            if primary == nil {
+                ForEach(model.iterationFields(for: item)) { field in
+                    iterationRow(field)
+                }
             }
             if let repo = item.repo {
                 row(.repository) {
