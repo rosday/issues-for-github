@@ -14,9 +14,8 @@ struct MyIssuesScreen: View {
             .navigationSubtitle(SyncSubtitle.text(model))
             .toolbar {
                 ToolbarItemGroup(placement: .primaryAction) {
+                    FilterToolbarMenu(scope: .myIssues)
                     Menu {
-                        MyIssuesDisplayMenu()
-                        Divider()
                         // The overview arranges its cards in a sheet of its own; the list, its sections.
                         if model.mineDisplay.layout == .overview {
                             Button {
@@ -47,9 +46,9 @@ struct MyIssuesScreen: View {
     }
 }
 
-/// My Issues' filter and how it shows, at the top of its "…" menu: Filter… opens the sheet; the overview or the list,
-/// a group (for the list) or an order is picked right in the menu, which then closes.
-private struct MyIssuesDisplayMenu: View {
+/// My Issues' filter and how it shows, in its filter menu: Filter… opens the sheet; the overview or the list, a group
+/// (for the list) or an order is picked right in the menu, which then closes.
+struct MyIssuesDisplayMenu: View {
     @Environment(AppModel.self) private var model
     @Environment(MobileNavigation.self) private var navigation
 
@@ -155,7 +154,9 @@ struct AllIssuesScreen: View {
         // A window narrower than this has the tab bar floating in the middle of the bar, next to the header.
         let roomy = windowWidth >= 950
         Group {
-            if board, wide {
+            if model.onlyMineHidesEverything(in: .allIssues(projectId)) {
+                OnlyMineEmptyState()
+            } else if board, wide {
                 MobileBoard(projectId: projectId, allIssues: true)
             } else if board {
                 PhoneBoard(projectId: projectId, allIssues: true, page: PhoneBoard.page(model: model, navigation: navigation, projectId: projectId, allIssues: true))
@@ -192,6 +193,7 @@ struct AllIssuesScreen: View {
                 .sharedBackgroundVisibility(.hidden)
             }
             ToolbarItemGroup(placement: .primaryAction) {
+                FilterToolbarMenu(scope: .allIssues(projectId))
                 Menu {
                     if !(wide && roomy) {
                         Picker(.viewModePicker, selection: layout) {
@@ -279,6 +281,8 @@ struct ProjectScreen: View {
                 MobileEmptyState(title: String(localized: .projectGoneTitle), message: String(localized: .projectGoneMessage), systemImage: "questionmark.square.dashed")
             } else if model.isLoading(projectId: projectId) {
                 ProjectLoading()
+            } else if model.onlyMineHidesEverything(in: .project(projectId)) {
+                OnlyMineEmptyState()
             } else if wide, let view = model.currentView(projectId: projectId), model.showsTimeline(view) {
                 // GitHub's roadmap layout: the view's issues on a timeline, where there is room for one.
                 ViewTimeline(view: view, scope: .project(projectId), nameWidth: 280) { openRoute(.issue($0.id)) }
@@ -345,6 +349,7 @@ struct ProjectScreen: View {
                 .sharedBackgroundVisibility(.hidden)
             }
             ToolbarItemGroup(placement: .primaryAction) {
+                FilterToolbarMenu(scope: .project(projectId))
                 if let project {
                     ProjectOptionsMenu(project: project, showsViewMode: !(wide && roomy))
                 }
@@ -434,8 +439,7 @@ struct ProjectOptionsMenu: View {
     var body: some View {
         Menu {
             if showsView, let view = model.currentView(projectId: project.id) {
-                // The open view: how it shows, its filter, a new one, and its own menu.
-                ViewDisplayMenu(view: view)
+                // The open view: its own menu and a new one. Its filter and how it shows are in the filter menu.
                 Menu {
                     ViewMenuItems(view: view)
                 } label: {

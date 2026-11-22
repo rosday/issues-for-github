@@ -80,8 +80,28 @@ struct BoardView: View {
                     guard let item = drag.card(at: local, in: model.columns.flatMap(\.items)) else { return nil }
                     return ItemMenuBuilder(model: model, item: item).menu()
                 }
+                // ⌘-dragging over cards picks them, across columns as a rectangle from where the press started.
+                SweepAreas.shared.register(menuRegion, SweepAreas.Area(
+                    place: .issues,
+                    start: { [model, drag] point in
+                        guard model.openItem == nil else { return nil }
+                        let origin = drag.boardFrameInWindow.origin
+                        return drag.sweepStart(at: CGPoint(x: point.x - origin.x, y: point.y - origin.y), model: model)?.id
+                    },
+                    rows: { [drag] in
+                        let origin = drag.boardFrameInWindow.origin
+                        return drag.sweepRows.map { SweepRow(id: $0.id, frame: $0.frame.offsetBy(dx: origin.x, dy: origin.y)) }
+                    },
+                    autoscroll: { [drag] point in
+                        let origin = drag.boardFrameInWindow.origin
+                        drag.sweepAutoscroll(at: point.map { CGPoint(x: $0.x - origin.x, y: $0.y - origin.y) })
+                    }
+                ))
             }
-            .onDisappear { [menuRegion] in ContextMenus.shared.remove(menuRegion) }
+            .onDisappear { [menuRegion] in
+                ContextMenus.shared.remove(menuRegion)
+                SweepAreas.shared.remove(menuRegion)
+            }
             // A click on the board beside the columns' cards, on a column's header or between columns, lets the picked
             // issues go. Clicks on cards and buttons are theirs: the innermost gesture wins.
             .contentShape(Rectangle())
@@ -158,32 +178,44 @@ struct BoardView: View {
         guard let column = model.columns.first(where: { $0.items.contains { $0.id == id } }),
               let frame = model.boardDrag.columnFrames[column.id] else { return }
         let margin: CGFloat = 16
-        var next = metrics.offset
+        // From the board's left edge in sight, as it scrolls (see `autoScroll(width:)`).
+        let current = model.boardDrag.scrollX
+        var next = current
         if frame.minX < margin {
             next += frame.minX - margin
         } else if frame.maxX > width - margin {
             next += frame.maxX - width + margin
         }
         next = min(max(next, 0), metrics.maxOffset)
-        guard next != metrics.offset else { return }
+        guard next != current else { return }
         withAnimation(Theme.quick) { scroll.scrollTo(x: next) }
     }
 
-    /// Scrolls the board sideways while a card is held near its left or right edge.
+    /// Scrolls the board sideways while a card is held near its left or right edge, or the pointer sweeps there.
     private func autoScroll(width: CGFloat) {
         let drag = model.boardDrag
-        guard let active = drag.active, !active.settling, metrics.maxOffset > 0 else { return }
-        let x = active.location.x
+        guard metrics.maxOffset > 0 else { return }
+        let x: CGFloat
+        if let active = drag.active {
+            guard !active.settling else { return }
+            x = active.location.x
+        } else if let point = drag.sweepPoint {
+            x = point.x
+        } else {
+            return
+        }
         var delta: CGFloat = 0
         if x < 56 {
             delta = -BoardDrag.scrollSpeed(insideEdgeBy: x)
         } else if x > width - 56 {
             delta = BoardDrag.scrollSpeed(insideEdgeBy: width - x)
         }
-        let next = min(max(metrics.offset + delta, 0), metrics.maxOffset)
-        guard next != metrics.offset else { return }
+        // In the coordinates the board scrolls to, which start at its left edge in sight: the board reaches under the
+        // sidebar, and its content offset counts from there, so it is as far left as it goes at minus the sidebar's width.
+        let next = min(max(drag.scrollX + delta, 0), metrics.maxOffset)
+        guard next != drag.scrollX else { return }
         scroll.scrollTo(x: next)
-        drag.retarget(model: model)
+        if drag.active != nil { drag.retarget(model: model) }
     }
 }
 
@@ -214,11 +246,16 @@ private struct LiftedCard: View {
     /// The issue it would go under if dropped now: it shrinks a little, lets the issue show through, and says so.
     var nestingUnder: Item?
 
+    private var stack: Int {
+        CardStackEdge.layers(max(card.item.subTotal, card.nested ?? 0, (active.picked?.items.count ?? 1) - 1))
+    }
+
     var body: some View {
         let picked = active.picked?.items.count
         CardView(card: card, width: active.size.width, lifted: true, avatarVersion: avatarVersion)
-            // A parent carries the sub-issues hanging under it along, and a picked card the other picked ones.
-            .background(alignment: .top) { if card.nested != nil || picked != nil { CardStackEdge() } }
+            // It keeps the cards it stands on for its sub-issues, and a parent carries the ones hanging under it along; a
+            // picked card stands on one for each of the other picked ones.
+            .background(alignment: .top) { CardStackEdge(layers: stack) }
             .overlay(alignment: .topTrailing) { if let picked { PickedCount(count: picked) } }
             .opacity(nestingUnder != nil ? 0.88 : 1)
             .overlay(alignment: .bottomLeading) {
@@ -504,7 +541,7 @@ struct ColumnView: View {
         case .row(.item(let item)):
             BoardCell.Spoken(
                 item: item, nesting: column.nesting, showsMilestone: model.currentMilestoneTitle == nil, width: width,
-                at: BoardCell.Geometry(item: item, place: column.nesting.place(of: item.id), folded: column.nesting.folded.contains(item.id), drag: drag)
+                at: BoardCell.Geometry(item: item, place: column.nesting.place(of: item.id), stack: column.nesting.stack(of: item), drag: drag)
             )
         }
     }
@@ -519,7 +556,7 @@ struct ColumnView: View {
         for line in lines {
             switch line {
             case .row(.item(let item)):
-                let at = BoardCell.Geometry(item: item, place: column.nesting.place(of: item.id), folded: column.nesting.folded.contains(item.id), drag: drag)
+                let at = BoardCell.Geometry(item: item, place: column.nesting.place(of: item.id), stack: column.nesting.stack(of: item), drag: drag)
                 let height = at.cardHeight(of: item, width: width)
                 heights.append(height + at.edge)
                 rows.append(.init(part: .card(item.id), indent: at.indent, height: height))
@@ -530,7 +567,7 @@ struct ColumnView: View {
             case .groupSlot(let group, let depth):
                 let indent = CGFloat(min(depth, CardTreeLines.deepest)) * CardTreeLines.indent
                 let height = measured.height(EpicGroupSlot.measure(group.group, width: width - indent))
-                heights.append(height + CardStackEdge.height)
+                heights.append(height + CardStackEdge.height(CardStackEdge.layers(group.group.count)))
                 rows.append(.init(part: .card(group.group.epic.id), indent: indent, height: height))
             }
         }
@@ -555,12 +592,19 @@ struct ColumnView: View {
         if let item { model.pointer(.entered, item.id) }
     }
 
-    /// Scrolls this column while a card is held near its top or bottom edge.
+    /// Scrolls this column while a card is held near its top or bottom edge, or the pointer sweeps there.
     private func autoScroll() {
-        guard let active = drag.active, !active.settling, drag.target?.columnId == column.id,
-              metrics.maxOffset > 0, let frame = drag.columnFrames[column.id] else { return }
+        guard metrics.maxOffset > 0, let frame = drag.columnFrames[column.id] else { return }
+        let y: CGFloat
+        if let active = drag.active {
+            guard !active.settling, drag.target?.columnId == column.id else { return }
+            y = active.location.y
+        } else if let point = drag.sweepPoint, frame.minX <= point.x, point.x < frame.maxX {
+            y = point.y
+        } else {
+            return
+        }
         let top = frame.minY + 40
-        let y = active.location.y
         var delta: CGFloat = 0
         if y < top + 56 {
             delta = -BoardDrag.scrollSpeed(insideEdgeBy: y - top)
@@ -570,7 +614,7 @@ struct ColumnView: View {
         let next = min(max(metrics.offset + delta, 0), metrics.maxOffset)
         guard next != metrics.offset else { return }
         scroll.scrollTo(y: next)
-        drag.retarget(model: model)
+        if drag.active != nil { drag.retarget(model: model) }
     }
 }
 
@@ -706,13 +750,13 @@ private struct EpicGroupSlot: View {
             )
             .reportsHeight(Self.measure(group, width: width - indent).key, to: measured)
             .padding(.leading, indent)
-            .padding(.bottom, CardStackEdge.height)
+            .padding(.bottom, CardStackEdge.height(CardStackEdge.layers(group.count)))
     }
 }
 
 /// One position in a column: the card, or the dashed slot while that card is being dragged. A sub-issue card
-/// hangs in under its parent, with a line from the parent; a card with sub-issues folded into it shows the edge
-/// of a second card under it. The card paints all of that itself: a long column scrolls by showing another card in
+/// hangs in under its parent, with a line from the parent; a card with sub-issues that don't hang under it stands on a
+/// card for each, up to three. The card paints all of that itself: a long column scrolls by showing another card in
 /// a row that scrolled out, and every view in a row adds to that.
 private struct BoardCell: View {
     @Environment(AppModel.self) private var model
@@ -732,14 +776,16 @@ private struct BoardCell: View {
         var indent: CGFloat
         /// The slot is as tall as the lifted card.
         var slotHeight: CGFloat?
-        /// The edge of a second card under one whose sub-issues are folded into it.
+        /// The cards it stands on for its sub-issues, and how far they reach under it.
+        var stack: Int
         var edge: CGFloat
 
-        @MainActor init(item: Item, place: Nesting.Place, folded: Bool, drag: BoardDrag) {
+        @MainActor init(item: Item, place: Nesting.Place, stack: Int, drag: BoardDrag) {
             isSlot = drag.active?.item.id == item.id
             indent = CGFloat(min(isSlot ? drag.target?.depth ?? 0 : place.depth, CardTreeLines.deepest)) * CardTreeLines.indent
             slotHeight = isSlot ? drag.active?.size.height ?? 80 : nil
-            edge = folded && !isSlot ? CardStackEdge.height : 0
+            self.stack = isSlot ? 0 : stack
+            edge = CardStackEdge.height(self.stack)
         }
 
         /// How tall the card or its slot is in a column this wide.
@@ -754,11 +800,11 @@ private struct BoardCell: View {
         // whole column again, and only the cards they leave and enter are painted anew.
         let pointer = dragging ? nil : hover[card: id]
         let highlighted = !dragging && (pointer != nil || model.focusedItemId == id)
-        let at = Geometry(item: card.item, place: place, folded: card.folded, drag: drag)
+        let at = Geometry(item: card.item, place: place, stack: card.stack, drag: drag)
         CardView(
             card: card, width: width - at.indent, highlighted: highlighted, selected: selected, peeked: model.isPeeked(id),
             avatarVersion: avatarVersion, hoveredPart: pointer?.part, hoveringFold: pointer?.onFold ?? false,
-            slotHeight: at.slotHeight, stackEdge: at.edge > 0,
+            slotHeight: at.slotHeight, stack: at.stack,
             tree: !at.isSlot && place.depth > 0 ? place : nil
         )
         .equatable()

@@ -28,6 +28,15 @@ public struct GitIssuesScene: Scene {
                 .disabled(!model.signedIn || model.projects.isEmpty)
             }
             UndoCommands(model: model)
+            CommandGroup(before: .toolbar) {
+                // Boards and lists with only your issues, from anywhere, as the person button in the toolbar.
+                Toggle(isOn: Binding(get: { model.onlyMine }, set: { model.onlyMine = $0 })) {
+                    Text(.onlyMyIssues)
+                }
+                .keyboardShortcut("m", modifiers: [.command, .shift])
+                .disabled(!model.signedIn || model.viewer == nil)
+                Divider()
+            }
             CommandMenu(.goMenu) {
                 Button(.back) { model.goBack() }
                     .keyboardShortcut("[", modifiers: .command)
@@ -152,8 +161,6 @@ struct SettingsView: View {
             }
             .pickerStyle(.segmented)
 
-            Toggle(.showDockBadgeSetting, isOn: $model.showsDockBadge)
-
             LabeledContent(.appIconMac) {
                 VStack(alignment: .trailing, spacing: 8) {
                     iconGrid
@@ -163,6 +170,10 @@ struct SettingsView: View {
                         .multilineTextAlignment(.trailing)
                 }
             }
+
+            InboxSettingsSection()
+
+            InboxBadgeSettingsSection()
 
             SubIssueSettingsSection()
 

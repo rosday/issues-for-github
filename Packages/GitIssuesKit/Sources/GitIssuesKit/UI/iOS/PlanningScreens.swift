@@ -24,6 +24,8 @@ struct MilestoneScreen: View {
                 )
             } else if model.isLoading(projectId: projectId) {
                 ProjectLoading()
+            } else if model.onlyMineHidesEverything(in: .milestone(projectId: projectId, title: title)) {
+                OnlyMineEmptyState()
             } else if wide, model.viewMode == .board {
                 VStack(spacing: 0) {
                     if let group { MilestoneSummaryCard(projectId: projectId, group: group, onBoard: true).padding(.horizontal, 18).padding(.top, 8) }
@@ -63,6 +65,7 @@ struct MilestoneScreen: View {
                 .sharedBackgroundVisibility(.hidden)
             }
             ToolbarItemGroup(placement: .primaryAction) {
+                FilterToolbarMenu(scope: .milestone(projectId: projectId, title: title))
                 if let group {
                     MilestoneOptionsMenu(projectId: projectId, group: group, showsViewMode: wide && !roomy)
                 }
@@ -218,11 +221,13 @@ struct RoadmapScreen: View {
     var projectId: String
 
     var body: some View {
-        let roadmap = model.roadmap(projectId: projectId)
+        let roadmap = model.shownRoadmap(projectId: projectId)
         let canEdit = model.projects.first { $0.id == projectId }?.viewerCanUpdate == true
         Group {
             if model.isLoading(projectId: projectId) {
                 ProjectLoading()
+            } else if model.onlyMineHidesEverything(in: .roadmap(projectId)) {
+                OnlyMineEmptyState()
             } else if roadmap.rows.isEmpty, roadmap.later.isEmpty {
                 MobileEmptyState(
                     title: String(localized: .roadmapEmptyTitle), message: String(localized: .roadmapEmptyMessage),
@@ -266,6 +271,7 @@ struct RoadmapScreen: View {
                 .sharedBackgroundVisibility(.hidden)
             }
             ToolbarItemGroup(placement: .primaryAction) {
+                FilterToolbarMenu(scope: .roadmap(projectId))
                 if wide, model.roadmapLayout == .timeline {
                     Menu {
                         TimelineZoomMenuItems()
@@ -467,21 +473,18 @@ enum PlanningImages {
         image("milestone-\(mark)", scheme) { MilestoneIcon(mark: mark, size: 15) }
     }
 
-    static func roadmap(_ scheme: ColorScheme) -> UIImage {
-        image("roadmap", scheme) { RoadmapIcon(size: 17).foregroundStyle(Theme.textSecondary) }
-    }
-
     /// A project's glyph in its colour, for its row in the sidebar.
     static func project(_ look: ProjectLook, _ scheme: ColorScheme) -> UIImage {
-        image("project-\(look.glyph.systemName)-\(look.color)", scheme) { ProjectGlyphImage(look: look, size: 19) }
+        image("project-\(look.glyph.systemName)-\(look.color)", scheme) { ProjectGlyphImage(look: look, size: 20) }
     }
 
     private static func image<Content: View>(_ key: String, _ scheme: ColorScheme, @ViewBuilder _ content: () -> Content) -> UIImage {
         let fullKey = "\(key)-\(scheme == .dark ? "dark" : "light")"
         if let cached = cache[fullKey] { return cached }
-        // As wide as the sidebar's symbol column, so names line up with the projects'.
+        // As wide as the sidebar's symbol column, so names line up with the symbols' rows, and no taller than the
+        // symbols: the sidebar makes a row with a taller image taller than the others.
         let renderer = ImageRenderer(content: content()
-            .frame(width: 28, height: 28)
+            .frame(width: 28, height: 22)
             .environment(\.colorScheme, scheme))
         renderer.scale = 3
         let image = renderer.uiImage?.withRenderingMode(.alwaysOriginal) ?? UIImage()

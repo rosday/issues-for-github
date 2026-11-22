@@ -440,6 +440,25 @@ public final class AppModel {
     var mineFilterText: String = UserDefaults.standard.string(forKey: "mine.filter") ?? "" {
         didSet { UserDefaults.standard.set(mineFilterText, forKey: "mine.filter") }
     }
+    /// "Only My Issues" (⇧⌘M): every board, list, milestone and roadmap shows only what is yours, wherever you go,
+    /// until it is turned off. Kept on the device, as My Issues' filter is.
+    var onlyMine = UserDefaults.standard.bool(forKey: "onlyMine") {
+        didSet {
+            guard onlyMine != oldValue else { return }
+            UserDefaults.standard.set(onlyMine, forKey: "onlyMine")
+            keptMineIds = []
+            rebuild()
+        }
+    }
+    /// Issues you took yourself off while "Only My Issues" was on, which stay on the page until you go elsewhere, and
+    /// the page that is.
+    @ObservationIgnored var keptMineIds: Set<String> = []
+    @ObservationIgnored var keptMinePlace: String?
+    /// The ids of what is yours, and of the epics that hold something of yours, worked out once per change of the data.
+    @ObservationIgnored var mineIdsCache: Set<String>?
+    @ObservationIgnored var mineEpicIdsCache: Set<String>?
+    /// Whether "Only My Issues" leaves a page empty that has issues, per page, worked out once per change too.
+    @ObservationIgnored var onlyMineHidesCache: [Scope: Bool] = [:]
     /// Filters changed here and not saved to GitHub yet, by view id, as GitHub keeps unsaved changes to a view.
     var draftFilters: [String: String] = UserDefaults.standard.dictionary(forKey: "views.drafts") as? [String: String] ?? [:] {
         didSet { UserDefaults.standard.set(draftFilters, forKey: "views.drafts") }
@@ -510,6 +529,8 @@ public final class AppModel {
     /// page.
     var pickedSubIssueIds: Set<String> = []
     @ObservationIgnored var subIssuePickAnchor: String?
+    /// The ⌘-drag going on now, which picks the issues the pointer sweeps over (`SweepPick`).
+    @ObservationIgnored var activeSweep: SweepPick?
     /// iPhone and iPad: the issue whose sub-issues are being picked, after Select on its page. The Mac picks them on
     /// the open issue's page without such a mode.
     var subIssuePickParentId: String?
@@ -517,10 +538,24 @@ public final class AppModel {
     var peekItemId: String?
 
     // The Inbox.
-    /// For you or Watching, as last chosen on this device.
-    var inboxBucket: InboxBucket {
-        didSet { UserDefaults.standard.set(inboxBucket.rawValue, forKey: "inbox.bucket") }
+    /// The pill on screen, as last chosen on this device: Needs You until another is picked.
+    var inboxCategory: InboxCategory {
+        didSet { UserDefaults.standard.set(inboxCategory.rawValue, forKey: "inbox.category") }
     }
+    /// Categories switched off in Settings on this device; one always stays on.
+    var inboxHiddenCategories: Set<InboxCategory> = Set(
+        (UserDefaults.standard.stringArray(forKey: "inbox.hiddenCategories") ?? []).compactMap(InboxCategory.init(rawValue:))
+    ) {
+        didSet { UserDefaults.standard.set(inboxHiddenCategories.map(\.rawValue).sorted(), forKey: "inbox.hiddenCategories") }
+    }
+    /// Categories whose unread notifications the number at the Inbox counts (sidebar, Home, the Dock), on this device:
+    /// Needs You until chosen otherwise. Only the ones offered count.
+    var inboxBadgeCategories: Set<InboxCategory> = (UserDefaults.standard.stringArray(forKey: "inbox.badgeCategories"))
+        .map { Set($0.compactMap(InboxCategory.init(rawValue:))) } ?? [.needsYou] {
+        didSet { UserDefaults.standard.set(inboxBadgeCategories.map(\.rawValue).sorted(), forKey: "inbox.badgeCategories") }
+    }
+    /// Runs of issues your account was assigned to together that are shown one by one, by the run's id.
+    var inboxUnfoldedBatches: Set<String> = []
     /// The entry whose issue is shown beside the list.
     var inboxSelectedId: String?
     /// Entries picked to act on together (⌘-click, Shift-click).
@@ -612,7 +647,7 @@ public final class AppModel {
         statusKinds = StatusKinds(persistent: false)
         overviewArrangement = OverviewArrangementStore(persistent: false)
         viewMode = .board
-        inboxBucket = .forYou
+        inboxCategory = .needsYou
         appearance = .system
         appIcon = .standard
     }
@@ -640,7 +675,7 @@ public final class AppModel {
         isDemo = demo
         signedIn = demo || auth.isSignedIn
         viewMode = ViewMode(rawValue: UserDefaults.standard.string(forKey: "viewMode") ?? "") ?? .board
-        inboxBucket = InboxBucket(rawValue: UserDefaults.standard.string(forKey: "inbox.bucket") ?? "") ?? .forYou
+        inboxCategory = InboxCategory(rawValue: UserDefaults.standard.string(forKey: "inbox.category") ?? "") ?? .needsYou
         appearance = AppearanceSetting(rawValue: UserDefaults.standard.string(forKey: "appearance") ?? "") ?? .system
         #if os(macOS)
         appIcon = AppIconChoice(rawValue: UserDefaults.standard.string(forKey: AppIconChoice.defaultsKey) ?? "") ?? .standard
@@ -667,6 +702,7 @@ public final class AppModel {
         #if os(macOS)
         installKeyMonitor()
         installNavigationMonitors()
+        installSweepMonitor()
         #if DEBUG
         DebugRemote.startIfRequested(model: self)
         #endif
@@ -1117,13 +1153,18 @@ public final class AppModel {
         projects.filter { !$0.closed }
     }
 
-    /// Items of a scope, in board order (My Issues in its own). Issues on none of your boards come first, newest first.
-    /// Epics are planned on the roadmap, as Linear's projects are, so boards and lists leave them out.
+    /// Items of a scope, in board order (My Issues in its own), as "Only My Issues" leaves them (`keepingMine`).
     func items(in scope: Scope) -> [Item] {
+        keepingMine(everyItem(in: scope), in: scope)
+    }
+
+    /// Items of a scope, yours or not: what its counts and progress are of. Issues on none of your boards come first,
+    /// newest first. Epics are planned on the roadmap, as Linear's projects are, so boards and lists leave them out.
+    func everyItem(in scope: Scope) -> [Item] {
         switch scope {
         case .project(let id):
             // A project shows the view open in it, filtered as on GitHub.
-            if let view = currentView(projectId: id) { return items(of: view) }
+            if let view = currentView(projectId: id) { return sorted(matchingItems(of: view), by: sort(of: view)) }
             return allItems.filter { $0.projectId == id && !$0.isEpic }
         case .myIssues:
             return mineItems()
@@ -1154,7 +1195,7 @@ public final class AppModel {
     func countOnNoBoard(projectId: String) -> Int {
         _ = dataVersion
         if let cached = noBoardCounts[projectId] { return cached }
-        let count = items(in: .allIssues(projectId)).filter { !$0.isOnBoard && !isDone($0) }.count
+        let count = everyItem(in: .allIssues(projectId)).filter { !$0.isOnBoard && !isDone($0) }.count
         noBoardCounts[projectId] = count
         return count
     }
@@ -1449,6 +1490,15 @@ public final class AppModel {
         mineLanesCache = nil
         needsYouCache = nil
         myItemsCache = nil
+        mineIdsCache = nil
+        mineEpicIdsCache = nil
+        onlyMineHidesCache = [:]
+        // Issues kept on a page by "Only My Issues" go once you go elsewhere.
+        let place = scope.map { "\($0)\u{1F}\(currentView?.id ?? "")" }
+        if place != keptMinePlace {
+            keptMineIds = []
+            keptMinePlace = place
+        }
         planningCache = PlanningCache()
         dataVersion &+= 1
 

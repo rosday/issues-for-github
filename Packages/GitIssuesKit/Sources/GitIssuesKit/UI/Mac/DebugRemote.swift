@@ -60,7 +60,7 @@ enum DebugRemote {
     private static func run(_ line: String, model: AppModel) {
         let parts = line.split(separator: " ", maxSplits: 1).map(String.init)
         let argument = parts.count > 1 ? parts[1] : ""
-        let readOnly: Set<String> = ["foldepic", "swipe", "clickepic", "roadmap", "planningdump", "complete?", "select", "dump", "snapshot", "notice", "mode", "open", "close", "focus", "scrolltest", "appearance", "icon", "settings", "back", "forward", "wait", "rendersync", "phase", "responder", "click", "clickmove", "key", "keycode", "keycmd", "overlay", "focusdesc", "scrolllist", "rightclick", "listdump", "togglesection", "nav", "leave", "trace", "renderhover", "hideproject", "showproject", "rendersidebar", "pick", "picks", "peek", "window", "demo", "dragimage", "entry", "inboxdump", "menudump", "fold", "view", "viewdump", "filter", "display", "menu", "snapshotmenu", "tables", "toolbar", "splits", "inspector", "regions", "windows", "sidebarrow", "menusweep", "mdfocus", "mdcaret", "mddump", "mdseen", "mdfold", "winkeycode", "mainmenu", "subtree", "picksub", "recents", "boardsweep", "pointer", "rendercards", "hidecolumn", "showcolumn", "iterations", "menuat", "rowcheck", "vscroll", "repaintcheck", "nesttarget", "statuses"]
+        let readOnly: Set<String> = ["foldepic", "swipe", "clickepic", "roadmap", "planningdump", "complete?", "select", "dump", "snapshot", "notice", "mode", "open", "close", "focus", "scrolltest", "appearance", "icon", "settings", "back", "forward", "wait", "rendersync", "phase", "responder", "click", "clickmove", "key", "keycode", "keycmd", "overlay", "focusdesc", "scrolllist", "rightclick", "listdump", "togglesection", "nav", "leave", "trace", "renderhover", "hideproject", "showproject", "rendersidebar", "pick", "picks", "peek", "window", "demo", "dragimage", "entry", "inboxdump", "menudump", "fold", "view", "viewdump", "filter", "display", "menu", "snapshotmenu", "tables", "toolbar", "splits", "inspector", "regions", "windows", "sidebarrow", "menusweep", "mdfocus", "mdcaret", "mddump", "mdseen", "mdfold", "winkeycode", "mainmenu", "subtree", "picksub", "recents", "boardsweep", "pointer", "rendercards", "hidecolumn", "showcolumn", "iterations", "menuat", "rowcheck", "vscroll", "repaintcheck", "nesttarget", "statuses", "sweepdrag", "sweepspots", "snapshotsidebar"]
         // Sample data never reaches GitHub, so everything may be tried there.
         if let command = parts.first, !readOnly.contains(command), !model.isDemo, model.currentProject?.title != sandboxTitle {
             log("refused \"\(line)\": the open project is not the sandbox")
@@ -90,12 +90,15 @@ enum DebugRemote {
             let number = due ? String(argument.dropFirst(4)) : argument
             let entry = model.visibleInbox.first { $0.isDue == due && ("\($0.number ?? -1)" == number || $0.displayNumber(withRepo: true) == number) }
             model.selectInboxEntry(entry)
+        case "inboxcategory":
+            // inboxcategory needsYou|fromYou|updates|all: shows that category, as a click on it does.
+            if let category = InboxCategory(rawValue: argument) { model.showInboxCategory(category) }
         case "inboxdump":
             for entry in model.inboxEntries + model.dueInboxEntries + model.selfAssignedInboxEntries {
                 let summary = model.inboxSummary(entry)
-                log("inbox \(entry.displayNumber(withRepo: true)) \(entry.bucket.rawValue) unread=\(model.isUnread(entry)) archived=\(entry.isArchived) \(summary.sign.rawValue): \(summary.lead) \(summary.excerpt ?? "")")
+                log("inbox \(entry.displayNumber(withRepo: true)) \(entry.category(viewer: model.viewer?.login).rawValue) unread=\(model.isUnread(entry)) archived=\(entry.isArchived) \(summary.sign.rawValue): \(summary.lead) \(summary.excerpt ?? "")")
             }
-            log("inbox unread=\(model.inboxUnreadCount) selected=\(model.inboxSelected?.displayNumber(withRepo: true) ?? "-") picked=\(model.inboxPicked.count) undo=\(model.inboxUndo?.message ?? "-") pending=\(model.pendingCount)")
+            log("inbox category=\(model.currentInboxCategory.rawValue) rows=\(model.inboxRows.count) unread=\(model.inboxUnreadCount) selected=\(model.inboxSelected?.displayNumber(withRepo: true) ?? "-") picked=\(model.inboxPicked.count) undo=\(model.inboxUndo?.message ?? "-") pending=\(model.pendingCount)")
         case "view":
             // view <name>: opens a view of the project on screen.
             if let projectId = model.scopeProjectId,
@@ -672,6 +675,15 @@ enum DebugRemote {
                     log(table.coordinator?.repaintCheck() ?? "no coordinator")
                 }
             }
+        case "sweepdrag":
+            // sweepdrag <x1> <y1> <x2> <y2> [<x> <y> …] [hold <seconds>] [esc]: a ⌘-press at the first point, in points
+            // from the window's top-left corner, that moves through the others over time and lets go, in-process, the way
+            // a hand's press goes: the app's monitor for the board, the overview and the Inbox, else the table under it.
+            // "hold" rests at the last point before letting go, for the edges to scroll; "esc" presses Escape there.
+            sweepDrag(argument, model: model)
+        case "sweepspots":
+            // sweepspots: where each issue a ⌘-drag can start on is, in window points from the top left.
+            sweepSpots(model: model)
         case "listpress":
             // listpress <number> <dy>: presses on an issue's row in the list and moves the mouse dy points down with the
             // button held, then lets go, through the table's own handling of a drag, in-process: the table starts the
@@ -919,6 +931,42 @@ enum DebugRemote {
                 view.subviews.forEach { walk($0, depth: depth + 1) }
             }
             if let root = model.mainWindow?.contentView?.superview { walk(root, depth: 0) }
+        case "snapshotsidebar":
+            // snapshotsidebar <path>: the sidebar's rows as a PNG at 2x, each drawn by the app itself on the window's
+            // colour, for checking its layout while the screen is locked, when `snapshot` can't draw the glass sidebar.
+            // Without a selected row's fill, which comes out black, and without the foot, which the list's bottom bar
+            // shows through a portal. It also draws what stands outside a row, which the window cuts off: take a
+            // capture before trusting it.
+            guard let window = model.mainWindow, let root = window.contentView?.superview ?? window.contentView else { break }
+            func hostingViews(in view: NSView) -> [NSView] {
+                let frame = view.convert(view.bounds, to: nil)
+                let found = frame.maxX <= window.frame.width / 2 && frame.width > 100 && view.layer != nil
+                    && String(describing: type(of: view)).contains("Hosting")
+                return (found ? [view] : []) + view.subviews.flatMap(hostingViews)
+            }
+            // The column's own hosting view first, then the rows over it.
+            let views = hostingViews(in: root).sorted { $0.bounds.height > $1.bounds.height }
+            let width = views.map { $0.convert($0.bounds, to: nil).maxX }.max() ?? 0, height = root.bounds.height, scale = 2.0
+            guard width > 0, let context = CGContext(data: nil, width: Int(width * scale), height: Int(height * scale), bitsPerComponent: 8, bytesPerRow: 0,
+                                                     space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { break }
+            context.setFillColor(window.backgroundColor.cgColor)
+            context.fill(CGRect(x: 0, y: 0, width: width * scale, height: height * scale))
+            context.scaleBy(x: scale, y: scale)
+            for view in views {
+                guard let layer = view.layer else { continue }
+                let frame = view.convert(view.bounds, to: nil)
+                context.saveGState()
+                context.translateBy(x: frame.minX, y: frame.minY)
+                if view.isFlipped {
+                    context.translateBy(x: 0, y: frame.height)
+                    context.scaleBy(x: 1, y: -1)
+                }
+                layer.render(in: context)
+                context.restoreGState()
+            }
+            if let image = context.makeImage(), let png = NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]) {
+                do { try png.write(to: URL(fileURLWithPath: argument)) } catch { log("snapshotsidebar: \(error)") }
+            }
         case "tables":
             // tables: every table in the window (the sidebar's list, the issue list) with its rows' text, for checking
             // what a snapshot can't draw, such as the glass sidebar.
@@ -943,7 +991,7 @@ enum DebugRemote {
                             let top = (window.contentView?.bounds.height ?? 0) - rect.maxY
                             return texts(cell).joined(separator: "/") + " @\(Int(rect.midX)),\(Int(top + rect.height / 2))"
                         }
-                        log("table \(type(of: table)) frame=\(table.convert(table.bounds, to: nil)) rows=\(table.numberOfRows) selected=\(table.selectedRow): \(rows.joined(separator: " | "))")
+                        log("table \(type(of: table)) frame=\(table.convert(table.bounds, to: nil)) rows=\(table.numberOfRows) hidden=\(table.hiddenRowIndexes.map { $0 }) selected=\(table.selectedRow): \(rows.joined(separator: " | "))")
                     }
                     view.subviews.forEach(walk)
                 }
@@ -978,12 +1026,14 @@ enum DebugRemote {
             // screen, where the window is out of the way. With "onscreen", at the top left of the main screen
             // instead, where a capture of the screen sees it and dropdowns open beside it as they do for people.
             // Either way the pointer goes through it, so it can't put hover states into the picture; with "interactive"
-            // it takes the pointer, to be tried with a real one.
+            // it takes the pointer, to be tried with a real one. "retina" picks the sharpest screen instead of the main
+            // one, so a capture is taken at 2x while the main screen is an external one at 1x.
             let size = argument.split(separator: " ").compactMap { Double($0) }
             if size.count == 2, let window = NSApp.windows.first(where: { $0.isVisible && $0.frame.width > 600 }) {
                 window.ignoresMouseEvents = !argument.contains("interactive")
                 Dropdown.offscreen = !argument.contains("onscreen")
-                if argument.contains("onscreen"), let screen = NSScreen.main?.visibleFrame {
+                let target = argument.contains("retina") ? NSScreen.screens.max { $0.backingScaleFactor < $1.backingScaleFactor } : NSScreen.main
+                if argument.contains("onscreen"), let screen = target?.visibleFrame {
                     window.setFrame(CGRect(x: screen.minX, y: screen.maxY - size[1], width: size[0], height: size[1]), display: true)
                 } else {
                     let screens = NSScreen.screens.map(\.frame).reduce(CGRect.null) { $0.union($1) }
@@ -1487,6 +1537,101 @@ enum DebugRemote {
             "\(model.cardTitle(id))[\(model.currentPageKey(of: id) ?? "-")/\(model.overviewPages(of: id).map(\.key).joined(separator: ","))]"
         }
         return "cards: " + cards.joined(separator: " ") + " auto=\(model.mineArrangement.automatic) rows=\(model.overviewRowsPerPage) lifted=\(model.overviewDrag.liftedId ?? "-")"
+    }
+
+    private static func sweepDrag(_ argument: String, model: AppModel) {
+        guard let window = model.mainWindow, let content = window.contentView else { return }
+        var words = argument.split(separator: " ").map(String.init)
+        let escape = words.contains("esc")
+        words.removeAll { $0 == "esc" }
+        var hold = 0.0
+        if let index = words.firstIndex(of: "hold"), index + 1 < words.count {
+            hold = Double(words[index + 1]) ?? 0
+            words.removeSubrange(index...(index + 1))
+        }
+        let numbers = words.compactMap(Double.init)
+        guard numbers.count >= 2, numbers.count.isMultiple(of: 2) else {
+            log("sweepdrag: needs points")
+            return
+        }
+        let points = stride(from: 0, to: numbers.count, by: 2).map { CGPoint(x: numbers[$0], y: numbers[$0 + 1]) }
+        func mouse(_ type: NSEvent.EventType, _ point: CGPoint) -> NSEvent? {
+            NSEvent.mouseEvent(
+                with: type, location: NSPoint(x: point.x, y: content.bounds.height - point.y), modifierFlags: .command,
+                timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil, eventNumber: 0,
+                clickCount: 1, pressure: type == .leftMouseUp ? 0 : 1
+            )
+        }
+        // The moves, ten steps between points at sixty a second, then the rest at the end and the lift.
+        var timeline: [(at: Double, event: () -> NSEvent?)] = []
+        var time = 0.05
+        for (from, to) in zip(points, points.dropFirst()) {
+            for step in 1...10 {
+                let t = CGFloat(step) / 10
+                let point = CGPoint(x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t)
+                timeline.append((time, { mouse(.leftMouseDragged, point) }))
+                time += 1.0 / 60
+            }
+        }
+        if escape {
+            timeline.append((time, {
+                NSEvent.keyEvent(
+                    with: .keyDown, location: .zero, modifierFlags: .command, timestamp: ProcessInfo.processInfo.systemUptime,
+                    windowNumber: window.windowNumber, context: nil, characters: "\u{1b}", charactersIgnoringModifiers: "\u{1b}",
+                    isARepeat: false, keyCode: 53
+                )
+            }))
+        }
+        let end = points[points.count - 1]
+        timeline.append((time + hold + 0.05, { mouse(.leftMouseUp, end) }))
+        timeline.insert((0, { mouse(.leftMouseDown, points[0]) }), at: 0)
+        // Posted over time, as a hand's come in, through the app's own handling of events: its monitors see them first.
+        let started = ProcessInfo.processInfo.systemUptime
+        var next = 0
+        let timer = Timer(timeInterval: 1.0 / 120, repeats: true) { timer in
+            MainActor.assumeIsolated {
+                let elapsed = ProcessInfo.processInfo.systemUptime - started
+                while next < timeline.count, timeline[next].at <= elapsed {
+                    if let event = timeline[next].event() { NSApp.postEvent(event, atStart: false) }
+                    next += 1
+                }
+                if next == timeline.count {
+                    timer.invalidate()
+                    // A click goes on through the queue: look once it has.
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { log("sweepdrag: " + pickState(model)) }
+                }
+            }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+    }
+
+    private static func pickState(_ model: AppModel) -> String {
+        func numbers(_ ids: Set<String>) -> String {
+            ids.map { id in model.allItems.first { $0.id == id }?.displayNumber ?? id }.sorted().joined(separator: " ")
+        }
+        return "picked=[\(numbers(model.selectedIds))] sub=[\(numbers(model.pickedSubIssueIds))] inbox=\(model.inboxPicked.count) "
+            + "open=\(model.openItem?.displayNumber ?? "-") sweeping=\(model.activeSweep != nil)"
+    }
+
+    private static func sweepSpots(model: AppModel) {
+        guard let window = model.mainWindow, let content = window.contentView else { return }
+        let height = content.bounds.height
+        func name(_ id: String) -> String {
+            model.allItems.first { $0.id == id }?.displayNumber ?? model.inboxEntry(id: id).map { "n:\($0.title.prefix(12))" } ?? id
+        }
+        func walk(_ view: NSView) {
+            if let table = view as? HoverTableView, let coordinator = table.coordinator {
+                let rows = coordinator.sweepRows(in: table).map { row in
+                    "\(name(row.id))@\(Int(row.frame.midX)),\(Int(row.frame.midY))"
+                }
+                log("sweep table page=\(coordinator.isOnPage) covered=\(coordinator.isCovered): " + rows.joined(separator: " "))
+            }
+            view.subviews.forEach(walk)
+        }
+        if let root = content.superview { walk(root) }
+        let rows = SweepAreas.shared.debugRows.sorted { ($0.frame.minX, $0.frame.minY) < ($1.frame.minX, $1.frame.minY) }
+        log("sweep areas: " + rows.map { "\(name($0.id))@\(Int($0.frame.midX)),\(Int($0.frame.midY)) h\(Int($0.frame.height))" }.joined(separator: " "))
+        log("pick state: " + pickState(model))
     }
 
     private static func mouseDrag(from start: CGPoint, to end: CGPoint, escape: Bool, model: AppModel) {

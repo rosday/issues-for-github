@@ -72,8 +72,8 @@ an assignee or a label opens its picker right where you clicked, ready to type i
 The board is quiet: white cards on grey, without borders or lanes, an issue's type as a small square and its name,
 labels as a dot and a name, and colour only where something needs you, such as a date that's due, an urgent issue or a blocker. Drag a card and it lifts off the board,
 tilts with the motion and settles with a spring, while its neighbours make room. Press Esc mid-drag and it goes back
-to where it came from. Pick several cards with ⌘-click and drag one of them, and they all go, together. The move
-shows in the same frame and reaches GitHub in the background.
+to where it came from. Pick several cards with ⌘-click, or hold ⌘ and drag across them, then drag one of them, and they
+all go, together. The move shows in the same frame and reaches GitHub in the background.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="Design/screenshots/drag-dark.webp">
@@ -92,7 +92,8 @@ Issues go under another issue the same way, and so do cards on the iPhone and iP
 
 A sub-issue with the same status as its parent hangs right under it, indented, so a parent and the sub-issues you
 work on with it read as one instead of as separate cards in the same column. The arrow on the parent folds them in. A
-sub-issue whose parent has another status stays in its own column and says which issue it belongs to. When the last
+sub-issue whose parent has another status stays in its own column and says which issue it belongs to. A card whose
+sub-issues aren't under it stands on a small pile: one card for one sub-issue, two for two, three for more. When the last
 one is done, the parent moves to Done by itself. The issues of an epic in the same column stand together the same
 way, under the epic's name; drag the name to another column and they all go.
 
@@ -130,7 +131,8 @@ Descriptions are Markdown, edited in place: click and type. It types like a note
 bullet and `- []` a checkbox, and a style's marks are kept and deleted as a pair; a change of style eases in. Tab and
 ↓ go from the title into the description, and ↑ at its top goes back. Sub-issues come
 with a progress bar, the most urgent first and the done ones last, as rows of the list, whose parts open their
-pickers and whose checkbox picks several, and the plus beside them adds a new one or an issue that exists already. A
+pickers and whose checkbox picks several, and the plus beside them adds a new one or an issue that exists already.
+Drag one, or several picked ones, onto another issue on the page to put them under it. A
 sub-issue with sub-issues of its own says how many of them are done, and the arrow beside it unfolds them under it,
 level by level, as a tree. What blocks the issue and what it blocks are listed below, as rows too, with the × to take
 one off where the checkbox stands. A blocked
@@ -176,6 +178,18 @@ reminder's buttons: Start, Mark as Done and Move to Tomorrow. So do issues your 
 the app, with `gh`, a script or a coding agent signed in as you: GitHub never notifies you of those, so the app finds
 them itself, and leaves out the ones you assigned yourself to in the app.
 
+What lands where follows what an entry asks of you, not why GitHub sent it, as Mail sorts its mail into categories.
+**Needs You**, where the Inbox opens, has your review, a mention, an assignment by someone else, a person writing on an
+open issue or pull request of yours, and issues that are due. **From You** has what your own account assigned you to
+outside the app, until it's closed; a coding agent opening a batch of issues makes one row that unfolds into them.
+**Updates** has what was merged or closed, what bots and project automation did, and repositories you watch, and
+**All** has everything. Only Needs You counts on the sidebar, the Dock and Home, so an agent working under your name
+doesn't bury what people ask of you. On the Mac the four sit in the toolbar with their symbols and how many are unread,
+on iPhone and iPad as pills above the list; `←` and `→` switch between them, and the app keeps the one you chose.
+Settings (on iPhone and iPad, your account) has a switch for each, on your device only: the Inbox offers the ones
+that are on and opens on the first of them, and with a single one left it is a plain list again. Under Badge you tick
+which of them the number counts, so you can see several and count only Needs You, or From You as well.
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="Design/screenshots/inbox-dark.webp">
   <img alt="The Inbox: notifications on the left, such as Kai Andersen assigned you and Theo Novak mentioned you, and the selected issue on the right with what's new since yesterday" src="Design/screenshots/inbox-light.webp">
@@ -206,7 +220,7 @@ The list groups issues by status. Each header stays pinned while you scroll thro
 a click. Drag an issue up or down to give it a new place, or into another section to change its status, as on the
 board; drop it on the middle of another issue, which lights up, to make it that issue's sub-issue. A row shows an
 issue as its card does, its type first among the tags, labels as a dot and a name and the milestone in grey, and it is
-the same row wherever issues are listed: in an issue's sub-issues and the issues it blocks or is blocked by too. A
+the same list wherever issues are listed: in an issue's sub-issues and the issues it blocks or is blocked by too. A
 sub-issue is indented as a whole, right of the line from its parent, and an epic's issues hang the same way under its
 name. The app follows the system appearance, or stays light or dark if you prefer.
 
@@ -257,7 +271,7 @@ laptop's screen shows six of them at once. A card pages sideways through the col
 yours, what you have started first. Swipe with two fingers, or click one of the status icons beside the project's
 name, under which it says which column you see and how many issues are in it; hover an icon for its column's name.
 When a column holds more than a page shows, "39 more in Notebook" leads to the rest on the project. **Pages in Each
-Card** in Display picks the columns: what is in progress and to do to start with, and the backlog, cards without a
+Card** in the filter's display picks the columns: what is in progress and to do to start with, and the backlog, cards without a
 status and **Done this week** when you ask for them. **Needs you** pages through what wants you now, whatever the
 project: overdue, due today, urgent and not started, idle for a week, or on no board. A started issue nobody has
 touched for a week says how long it has been idle. In a project where nobody else has open issues, the issues assigned
@@ -279,6 +293,13 @@ compared by what they mean, so "In Review" in one project and "Doing" in another
 "Urgent" are both urgent. A card's pages and the list start with the most urgent issues; grouped by project, the
 list's rows leave out the project's name. GitHub has no view behind My Issues, so its filter and Display options stay on your
 device.
+
+To see only your own work on the boards too, press ⇧⌘M or turn on **Only My Issues** at the top of the filter, the
+symbol at the right of the toolbar: every board, list, milestone and the roadmap then shows only the issues assigned
+to you, alone or with others, by the same rule as My Issues, wherever you go, until you turn it off. A **Mine** chip
+under the toolbar says so, and its cross shows everyone's issues again. An issue you take yourself off stays where it
+is until you leave the page, a new issue starts out assigned to you, and a page with nothing of yours says so. The
+views on GitHub stay as they are.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="Design/screenshots/my-issues-dark.webp">
@@ -311,7 +332,9 @@ a menu that switches to another, and under it are All Issues and the project's v
 shows what its filter finds, as a board or as a list grouped the way GitHub groups it. The filter is a row of chips
 over the issues, as in Linear: press `F` to add one for a status, a person, a label, a milestone, an iteration or any field
 of the project, click a chip to change it. A changed filter stays yours until you press `⌘S`, which saves it to the
-view for everyone; `⇧V` shows a view as board or list, by other columns or groups, or with the iteration on its cards.
+view for everyone. The filter symbol at the right of the toolbar has all of it in one panel: Only My Issues, the
+view's filter, and below it how the view shows (`⇧V`): by other columns or groups, in another order, or with the
+iteration on its cards, with one **Save for Everyone** for both. Board and List are in the middle of the toolbar.
 New views, renamed ones and deleted ones are GitHub's too, so a view looks the same on github.com.
 
 <picture>
@@ -362,10 +385,11 @@ The interface uses the system's own parts.
   column of their own); My Issues shows its cards, one under another on iPhone and two or three to a row on iPad,
   each paging sideways through its project's columns, and Needs you. Swipe right to mark an issue done, swipe left to assign it to yourself or delete it, touch and hold for the same menu as the Mac's right-click,
   and drag after holding to give an issue a new place in its section.
-  Sub-issues with their parent's status hang under it, as on the Mac, and the arrow beside the parent folds them.
+  Sub-issues with their parent's status hang under it, as on the Mac, and the arrow beside the parent folds them; a
+  card whose sub-issues aren't under it stands on a small pile of cards.
   A milestone is a list grouped by epic,
   the roadmap a list of epics by milestone. The open view's filter is a line over its list or board; tap it to change
-  the filter, and Display in the project's "…" turns a view into a list or back. Touch and hold a view on the
+  the filter, and Display in the filter menu (the filter symbol in the bar) turns a view into a list or back. Touch and hold a view on the
   project's page for its menu. A view's groups show their progress or each person's load, and a view of one iteration has the cycle on top, as on the Mac. My Issues'
   "…" menu shows it as the overview or a list, picks the overview's pages, filters it, groups the list by status,
   project, priority or due date and orders it; its filter shows as a line under the title.
@@ -376,12 +400,13 @@ The interface uses the system's own parts.
   styles' marks stay hidden, as in Notes: a tap at the end of bold text types on in bold, and Delete takes the letter
   you see. A link to another issue the app has opens that issue. The properties are glass chips under the title, the
   sub-issues rows as in the lists (by priority, or another order from the "…" beside its plus; the arrow beside one with
-  sub-issues of its own unfolds them under it), the comments a conversation, and the comment field stays at the bottom
+  sub-issues of its own unfolds them under it; touch and hold one and drop it onto another to put it under that one),
+  the comments a conversation, and the comment field stays at the bottom
   as in Messages, showing `⌘↵` beside its button while you write with a keyboard attached. **Select** in that "…" puts circles in place of the sub-issues' status, as in Mail: tap several,
   unfolded ones too, then move them all under another parent with the bar at the bottom, or change their status,
   priority, assignee or labels from its "…" or a picked one's menu. A project's board on iPad stands its cards on
   grey without borders or lanes, as on the Mac; a column's "…" hides it on that iPad, and the hidden ones wait at the end of the
-  board and under Display in the project's "…", a tap away from coming back.
+  board and under Display in the filter menu, a tap away from coming back.
 - **iPad:** a sidebar with the Inbox, My Issues and Search, then every project, each a tap
   away (touch and hold one, or swipe it, to hide it; the hidden ones wait folded at the end of the projects),
   and under them the entries of the project open: All Issues and its views, and its next milestones and roadmap; your
@@ -389,7 +414,7 @@ The interface uses the system's own parts.
   drop (touch and hold, then drag), and one dropped onto the middle of another card becomes its sub-issue. A milestone opens as the board's columns or a list, the roadmap as the timeline,
   whose bars move with a finger. An issue shows its properties in a column
   beside it, and the Inbox shows the selected issue beside its list, as in Mail. With a keyboard, the Mac's shortcuts
-  work: J and K, S P A L I, ⌘1 ⌘2 ⌘3 ⌘4, ⌘K, ⌘N, ⌘R, ⌘[, ⌘↵, ⌘Z and ⇧⌘Z, and in the Inbox U, E, H and ⇧S. S, P, A and L open
+  work: J and K, S P A L I, ⌘1 ⌘2 ⌘3 ⌘4, ⌘K, ⌘N, ⌘R, ⌘[, ⌘↵, ⌘Z and ⇧⌘Z, ⇧⌘M, and in the Inbox ← →, U, E, H and ⇧S. S, P, A and L open
   their picker ready to type in; Return picks the first match. While writing, the Mac's Format shortcuts work too
   (⌘B, ⌘I, ⇧⌘H, ⇧⌘L and the others), listed while you hold ⌘, the Markdown shows next to the caret as on the Mac, and
   Tab and the arrow keys go between an issue's title and its description. With a pointer, ⌘-click and Shift-click pick several
@@ -406,6 +431,8 @@ The interface uses the system's own parts.
 - **Board and list** for every GitHub Project you can see, plus **My Issues**: everything assigned to you, as an
   overview of cards you arrange (a card per project that pages through its columns, and what needs you now), or as one
   list with its own filter, grouped by status, project, priority or due date.
+- **Only My Issues.** One switch in the filter, or ⇧⌘M, narrows every board, list, milestone and the roadmap to the
+  issues assigned to you, wherever you go, and leaves the views on GitHub alone.
 - **All Issues** of a project: its board's issues and those of its repositories on no board, which one click puts on
   the board. As a list, or as a board with a column of its own for the issues on no board and its columns in your own
   order.
@@ -427,7 +454,8 @@ The interface uses the system's own parts.
   with its days left, a roadmap as a timeline.
 - **An Inbox** with GitHub's notifications about issues and pull requests: who did what, the issue beside it, and
   read, archive, snooze and unsubscribe in one key. Read and archived are the same on github.com. Issues your own
-  account assigned you to with `gh` or a coding agent show up too, which GitHub doesn't notify you of.
+  account assigned you to with `gh` or a coding agent show up too, which GitHub doesn't notify you of. It sorts them
+  into Needs You, From You, Updates and All, and only Needs You counts.
 - **Instant.** Every change is written to a local database first and shows in the same frame. GitHub is updated in
   the background.
 - **Works offline.** Changes queue up and are sent when the connection returns.
@@ -621,12 +649,13 @@ Hover an issue or move to it with the arrow keys, then:
 | `⌥↑` `⌥↓` or `⌥K` `⌥J` | Move the issue up or down its column or list section |
 | `Return` | Open the issue; `Esc` goes back, to the parent if you came from it |
 | `Space` | Peek at the issue in a panel over the board or list; `J` `K` move the peek along. On a Force Touch trackpad, a deep press on the issue does the same |
-| `X` | Pick the issue for a change to several at once; `⇧↑` `⇧↓` or `⇧J` `⇧K` pick a run, `⌘A` picks all |
+| `X` | Pick the issue for a change to several at once; `⇧↑` `⇧↓` or `⇧J` `⇧K` pick a run, `⌘A` picks all. With the pointer, ⌘-click picks one and ⌘-drag every issue it passes over |
 | `⌘[` `⌘]` | Back and forward (also mouse side buttons and two-finger swipe) |
 | `⌘+` `⌘−` / `⌘0` | Zoom a timeline in or out / reset to Months or Quarters; pinch, zoom buttons and ⌘-scroll work too |
 | `⌃⌘I` | Show or hide the details of the open issue, in the inspector beside it |
+| `⌘⇧M` | Only My Issues: every board, list, milestone and the roadmap shows only the issues assigned to you, until you press it again (also the switch at the top of the filter, the **Mine** chip's cross, and View › Only My Issues) |
 | `F` | Filter the view on screen, or My Issues: pick what to filter by, then the values |
-| `⇧V` | Display options of the view: board or list, columns, groups, order and the fields shown; of My Issues: the order, the list's groups, and the overview's pages |
+| `⇧V` | The filter at how the page shows: the view's columns, groups, order, the fields shown and the hidden columns; My Issues' order, the list's groups and the overview's pages |
 | `⌘S` | Save the view's changed filter to GitHub, for everyone |
 | `⌃Tab` `⌃⇧Tab` | Next or previous view of the project |
 | `G` then `B` / `L` / `M` / `A` / `I` / `P` / `R` | Go to board, list, My Issues, All Issues, the Inbox, switch project, or the roadmap |
@@ -638,14 +667,15 @@ Hover an issue or move to it with the arrow keys, then:
 | `⌘Z` / `⌘⇧Z` | Undo / redo the last change, as named in the Edit menu; while you type, the typing |
 | `⌘⌫` | Delete the issue (asks first; needs admin rights in the repository) |
 | `⌘R` | Sync with GitHub now |
-| `⌘,` | Settings: light, dark or system appearance, the app icon, and reminders of due issues |
+| `⌘,` | Settings: light, dark or system appearance, the app icon, the Inbox's categories, and reminders of due issues |
 
 In the Inbox:
 
 | Key | Action |
 |---|---|
 | `J` `K` or `↑` `↓` | Next or previous notification; its issue opens beside the list and counts as read |
-| `Return` | Open the issue full size; `Esc` goes back to the Inbox |
+| `←` `→` | The category to the left or right: Needs You, From You, Updates, All |
+| `Return` | Open the issue full size; `Esc` goes back to the Inbox. On a row of several issues assigned together, show them one by one |
 | `U` / `⌥U` | Mark read or unread / mark everything read |
 | `E` or `⌫` | Archive (GitHub's *Done*); `⌘Z` or the message at the bottom undoes it for a few seconds, until it has gone to GitHub |
 | `⇧⌫` | Archive everything read |
@@ -653,7 +683,8 @@ In the Inbox:
 | `⇧S` | Unsubscribe: GitHub tells you about it again only if you're mentioned or comment |
 | `S` `P` `A` `L` `I` | Change the issue, as anywhere else |
 
-`X` or `⌘`-click picks a notification, `⇧J` `⇧K` or Shift-click a run of them, to read, snooze or archive together;
+`X` or `⌘`-click picks a notification, `⇧J` `⇧K`, Shift-click or a ⌘-drag over them a run of them, to read, snooze or
+archive together;
 `S` `P` `A` `L` `I` then change all of their issues, and `Esc` lets them go. Right-click one for everything at once.
 
 Click an issue's priority, status, type, labels, assignees, due date or sub-issue count to change it in place, or right-click
@@ -669,8 +700,9 @@ names the issue that blocks it, `#5`, with `+1` for each further one, and lists 
 sub-issue in its parent. In the list, click a section header to fold it; Option-click folds them all.
 
 Sub-issues with the same status as their parent hang under it, indented; click the arrow beside the parent, or
-right-click it, to fold them in or out. A sub-issue whose parent has another status names its parent instead, and a
-click there changes the parent. When you finish the last open sub-issue, the parent moves to Done too; Settings ›
+right-click it, to fold them in or out. Folded in, or with another status, they show as cards under the parent's card,
+one for each up to three. A sub-issue whose parent has another status names its parent instead, and a click there
+changes the parent. When you finish the last open sub-issue, the parent moves to Done too; Settings ›
 Sub-issues turns that off.
 
 In an issue, a sub-issue that has sub-issues of its own shows how many of them are done; click the arrow beside its
@@ -683,8 +715,8 @@ by **Priority** (the most urgent first, those without one after them), **Status*
 and the list a card's sub-issue count opens follows the same order. Right-click an issue for **Set Parent Issue…**, **Add
 Sub-issue** and **Mark As** (blocked by, blocking). These pickers find issues the same way; picking a checked one takes
 it away again. The issue's inspector has Parent, Blocked by and Blocking rows that open the same pickers, and the ✕ that
-shows when you point at a blocker in the issue takes it away. ⌘-click or Shift-click sub-issues in an issue to pick
-several; right-click one of them to move them all under another parent, into an epic or out of their parent, or to
+shows when you point at a blocker in the issue takes it away. ⌘-click or Shift-click sub-issues in an issue, or hold ⌘
+and drag over them, to pick several; right-click one of them to move them all under another parent, into an epic or out of their parent, or to
 change their status, priority, assignee or labels together. `Esc` lets them go.
 
 A project's next two milestones and its roadmap are listed under Milestones in the sidebar. In a milestone, click its date to change it, the text under the header to edit its name and description,
@@ -709,7 +741,7 @@ new issue made in a view gets what the view's filter asks for, such as this iter
 
 A view of one iteration has the cycle over its issues; the arrows beside it show the one before or after, a changed
 filter until you save it. On a roadmap view's timeline, click a group to fold it and an issue's name to open it;
-**Display** switches between timeline, board and list.
+**Display** in the filter switches between timeline, board and list.
 
 A description is drawn as on GitHub and edited right there. Click a checkbox to tick it, a link to open it (one to
 another issue the app has opens that issue here, in comments too), and anywhere else to type: the Markdown of what the
@@ -749,13 +781,16 @@ header to reorder it, double-click its name to rename it, right-click it for its
 and use **Add column** at the right end of the board. **Hide Column** takes a column and its cards off the board on
 this device only, for the view you're in; the project on GitHub doesn't change, and the list still shows every status.
 Hidden columns are listed at the right end of the board, with how many issues each holds, and under **Hidden
-Columns** in Display (`⇧V`); a click shows one again, and **Reset** there brings them all back. All Issues as a board
+Columns** in the filter's display (`⇧V`); a click shows one again, and **Reset** there brings them all back. All Issues as a board
 moves and hides its columns the same way, all of them on this device only: GitHub's statuses keep their order, and
 they are renamed, coloured and deleted on the board. Its **No project** column takes no cards; drag one of its issues
 onto a status to put it on the board. All Issues' list takes drags the same way.
 
 To change several issues at once, pick them with `X`, the checkbox at the start of a list row, ⌘-click or
-Shift-click. A bar at the bottom then sets status, priority, assignee, type, labels or the due date for all of them, and so
+Shift-click, or hold ⌘ and drag over them: every issue between where you pressed and the pointer is picked, and
+dragging back lets go of the ones it leaves. On a board the drag reaches across columns, and a list or column scrolls
+while you hold the pointer at its edge. Started on a picked issue, the drag lets them go instead, and `Esc` before you
+let go of the button puts the picks back as they were. A bar at the bottom then sets status, priority, assignee, type, labels or the due date for all of them, and so
 do the usual keys, dropdowns and right-click menu. Drag one of them and they all go: on the board and in the list they
 lift off together and land one after the other where you drop them. `Esc` or a click beside the issues clears the
 pick, and a plain click on an issue opens it and lets the picked ones go. Sub-issues hanging under
@@ -808,7 +843,9 @@ Settings › General › Language & Region › Applications; on iPhone and iPad 
 | Tap at the end of bold text | Type on in bold: on the touch keyboard its stars stay hidden, and Delete takes the letter you see and keeps the bold |
 | Tap a checkbox, a link, a table or a diagram in a description | Tick it, open it, or edit its source |
 | Touch and hold a card, then drag (iPad) | Move it to another place or column |
+| Touch and hold a sub-issue on an issue's page, then drop it onto another one | Put it, with any others picked, under that one |
 | Touch and hold a card, then hold it a moment over the middle of another card | That card lights up: let go to make the dragged issue its sub-issue. It keeps its status, and the notice that says so undoes it. Over a card's top or bottom edge it goes above or below that card instead |
+| The filter symbol in the bar of a board, list, milestone or the roadmap | **Only My Issues** shows only the issues assigned to you there and everywhere else, until you turn it off; **Filter…** and **Display** change the view. The symbol is filled while anything narrows the page |
 | "…" in All Issues | Show it as a board or a list (on a wide iPad, the switch beside its name); on the board, the hidden columns, a tap away from coming back |
 | "…" over a column of All Issues' board | Move it left or right, or hide it, on that device |
 | Swipe sideways on a board, or tap a column in the strip over it (iPhone) | Turn to that column |
@@ -820,7 +857,7 @@ Settings › General › Language & Region › Applications; on iPhone and iPad 
 | Touch and hold a view on the project's page (iPhone) | Pin, filter, rename, duplicate, open on GitHub, delete |
 | Swipe right on a view, milestone, All Issues or the roadmap on the project's page, or Pin in its "…" (iPhone) | Pin it to Home as a tile with its count; touch and hold the tile to unpin it |
 | Tap the filter line over a view | Change the filter; **Save for Everyone** puts it on GitHub, **Reset** takes it back |
-| "…" in My Issues | Show it as the overview or a list, pick the overview's pages, customize its cards, filter it, group the list by status, project, priority or due date, and order it; a tap on its filter line changes the filter, **Clear Filter** takes it away |
+| The filter symbol in My Issues | Filter it, show it as the overview or a list, pick the overview's pages, group the list by status, project, priority or due date, and order it; "…" customizes its cards. A tap on its filter line changes the filter, **Clear Filter** takes it away |
 | Swipe sideways on a card in My Issues, or tap a status icon beside its name | Turn to another column of its project; touch and hold the card to show the project or take the card out |
 | Tap ‹ or › beside a view's cycle | The cycle before or after, until you save it |
 | New View… on the project's page (iPhone), or in the project's "…" menu | A new view, starting from the one open |
@@ -831,6 +868,8 @@ Settings › General › Language & Region › Applications; on iPhone and iPad 
 | Tap yourself at the foot of the sidebar (iPad) | Your account, Sync Now and the settings |
 | Change Icon… in a project's "…" menu, or touch and hold it on Home (iPhone) | Its glyph and colour: 257 glyphs in groups, with a search field; a colour keeps the sheet open, a glyph closes it |
 | Touch and hold a project on Home (iPhone) or in the sidebar (iPad), or swipe it left | Hide it on that device, or show it again; hidden projects wait folded under "hidden" at the end of the projects, a tap unfolds them |
+| Tap a pill at the top of the Inbox | Needs You, From You, Updates or All; the chosen one shows its name, the others their symbol and how many are unread |
+| Tap a row of several issues in the Inbox | Show the issues your account was assigned to together one by one, or fold them again |
 | Swipe right in the Inbox | Read, or unread |
 | Swipe left in the Inbox | Archive, or snooze |
 | Touch and hold in the Inbox | Read, snooze, archive, unsubscribe, and the issue's status, priority, assignee and labels |

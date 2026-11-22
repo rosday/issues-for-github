@@ -135,6 +135,11 @@ struct ContentPanel: View {
                                 .frame(height: 40)
                         }
                     }
+                    // All Issues, a milestone and the roadmap have no filter of their own: Mine says why they show
+                    // only yours.
+                    if model.currentView == nil, model.scope != .myIssues {
+                        OnlyMineBar()
+                    }
                     if case .milestone(let projectId, let title) = model.scope,
                        let group = model.milestoneGroup(projectId: projectId, title: title) {
                         MilestoneSummary(projectId: projectId, group: group)
@@ -156,6 +161,13 @@ struct ContentPanel: View {
                             Button(.showBoard) { model.select(.project(projectId)) }
                                 .buttonStyle(SecondaryButtonStyle())
                         }
+                    } else if let scope = model.scope, model.onlyMineHidesEverything(in: scope) {
+                        // "Only My Issues" leaves out every issue here, which isn't the page having none.
+                        EmptyState(title: String(localized: .nothingOfYoursTitle), message: String(localized: .nothingOfYoursMessage)) {
+                            Button(.showEveryonesIssues) { model.onlyMine = false }
+                                .buttonStyle(SecondaryButtonStyle())
+                        }
+                        .transition(.opacity)
                     } else if case .roadmap(let projectId) = model.scope {
                         RoadmapView(projectId: projectId)
                             .transition(.opacity)

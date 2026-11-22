@@ -1,10 +1,10 @@
 #if os(macOS)
 import SwiftUI
 
-/// The window's toolbar: back and forward, New Issue, and the page's own buttons in glass. It names no page: the
-/// sidebar says where you are. What it holds follows the page: a board or a list, an open issue, the Inbox. It has the
-/// same items on every page and only their contents change, so moving around adds or removes no item, which the
-/// toolbar would animate each time.
+/// The window's toolbar: back and forward, New Issue beside them, and the page's own buttons in glass. It names no
+/// page: the sidebar says where you are. What it holds follows the page: a board or a list, an open issue, the Inbox.
+/// It has the same items on every page and only their contents change, so moving around adds or removes no item, which
+/// the toolbar would animate each time.
 struct MainToolbar: ToolbarContent {
     let model: AppModel
     let openItem: Item?
@@ -12,15 +12,24 @@ struct MainToolbar: ToolbarContent {
 
     var body: some ToolbarContent {
         BackForwardButtons(model: model)
+        // New Issue right after back and forward, but in glass of its own: it does something, they go somewhere.
+        // AppKit draws all navigation items as one piece of glass, and a spacer can't go between them (it isn't one),
+        // so this item leaves the shared glass and brings its own, as far from theirs as two groups stand apart (8 pt:
+        // the toolbar leaves 12 around an item without shared glass, hence -4).
         ToolbarItem(placement: .navigation) {
             Button {
                 model.overlay = .newIssue(statusId: nil, parentItemId: nil)
             } label: {
                 Label(String(localized: .newIssueAction), systemImage: "square.and.pencil")
+                    .frame(width: 36, height: 36)
+                    .contentShape(Circle())
             }
             .help(Text(.newIssueShortcutTooltip))
             .disabled(model.projects.isEmpty)
+            .glassEffect(.regular.interactive(), in: .circle)
+            .padding(.leading, -4)
         }
+        .sharedBackgroundVisibility(.hidden)
         ToolbarItem(placement: .principal) {
             PrincipalControl(openItem: openItem)
         }
@@ -29,6 +38,11 @@ struct MainToolbar: ToolbarContent {
             PageControls(openItem: openItem, showsInspector: $showsInspector)
         }
         .sharedBackgroundVisibility(model.hasPageControls(openItem: openItem) ? .automatic : .hidden)
+        // The filter last, in glass of its own, on every page: whose issues, which, and how they show.
+        ToolbarSpacer(.fixed)
+        ToolbarItem {
+            FilterPanelButton()
+        }
     }
 }
 
@@ -57,8 +71,8 @@ private struct BackForwardButtons: ToolbarContent {
     }
 }
 
-/// In the middle: Board and List, My Issues' Overview and List, the roadmap's Timeline and List, or the Inbox's For
-/// You and Watching.
+/// In the middle: Board and List, My Issues' Overview and List, the roadmap's Timeline and List, or the Inbox's Needs
+/// You, From You, Updates and All.
 private struct PrincipalControl: View {
     @Environment(AppModel.self) private var model
     let openItem: Item?
@@ -66,8 +80,8 @@ private struct PrincipalControl: View {
     var body: some View {
         // In one container: the toolbar names an item after a picker it holds directly, and a new name is a new item.
         HStack(spacing: 0) {
-            if openItem == nil, model.scope == .inbox, model.showsInboxBuckets {
-                InboxBuckets()
+            if openItem == nil, model.scope == .inbox, model.shownInboxCategories.count > 1 {
+                InboxCategories()
             } else if openItem == nil, model.showsLayoutSwitch {
                 LayoutPicker()
             } else if openItem == nil, model.roadmapScopeProjectId != nil {
@@ -80,7 +94,7 @@ private struct PrincipalControl: View {
 }
 
 /// The page's own buttons, in one piece of glass: an issue's arrows, link and GitHub; what to do with a
-/// notification; the filter and display of a view or My Issues; a milestone's progress and date; the roadmap's zoom.
+/// notification; a milestone's progress and date; the zoom of the roadmap and of a view's timeline.
 private struct PageControls: View {
     @Environment(AppModel.self) private var model
     let openItem: Item?
@@ -110,11 +124,8 @@ private struct PageControls: View {
                 if let milestone = model.milestoneScope {
                     MilestoneToolbarStatus(projectId: milestone.projectId, title: milestone.title)
                 }
-                if let view = model.currentView {
-                    ViewToolbarButtons(view: view)
-                }
-                if model.scope == .myIssues {
-                    MyIssuesToolbarButtons()
+                if let view = model.currentView, model.showsTimeline(view) {
+                    TimelineZoomButtons()
                 }
                 if model.showsPriorityFieldButton, let project = model.currentProject {
                     Button {
@@ -164,13 +175,13 @@ extension AppModel {
 
     fileprivate func hasPrincipalControl(openItem: Item?) -> Bool {
         guard openItem == nil else { return false }
-        if scope == .inbox { return showsInboxBuckets }
+        if scope == .inbox { return shownInboxCategories.count > 1 }
         return showsLayoutSwitch || roadmapScopeProjectId != nil || scope == .myIssues
     }
 
     fileprivate func hasPageControls(openItem: Item?) -> Bool {
         if openItem != nil || scope == .inbox { return true }
-        return roadmapScopeProjectId != nil || milestoneScope != nil || currentView != nil || scope == .myIssues
+        return roadmapScopeProjectId != nil || milestoneScope != nil || currentView.map(showsTimeline) == true
             || showsPriorityFieldButton
     }
 }
@@ -355,39 +366,6 @@ private struct RoadmapToolbarControls: View {
                 }
                 .buttonStyle(.plain)
                 .help(Text(.newEpicTooltip))
-            }
-        }
-    }
-}
-
-/// A view's filter (F) and how it is displayed (⇧V), side by side in one piece of glass.
-private struct ViewToolbarButtons: View {
-    @Environment(AppModel.self) private var model
-    let view: ProjectView
-
-    var body: some View {
-        HStack(spacing: 0) {
-            if model.showsTimeline(view) { TimelineZoomButtons() }
-            HeaderFilterButton(
-                filter: Binding(get: { model.filter(of: view) }, set: { model.setFilter($0, of: view) }),
-                scope: .project(view.projectId)
-            )
-            DisplayButton(changed: model.displayDiffers(view)) { close in
-                DisplayOptions(view: view, close: close)
-            }
-        }
-    }
-}
-
-/// My Issues' filter and display, as a view has them.
-private struct MyIssuesToolbarButtons: View {
-    @Environment(AppModel.self) private var model
-
-    var body: some View {
-        HStack(spacing: 0) {
-            HeaderFilterButton(filter: Binding(get: { model.mineFilter }, set: { model.setMineFilter($0) }), scope: .myIssues)
-            DisplayButton(changed: !model.mineDisplay.optionsAreDefault) { close in
-                MyIssuesDisplayOptions(close: close)
             }
         }
     }

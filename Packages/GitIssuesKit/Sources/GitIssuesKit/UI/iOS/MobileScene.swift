@@ -215,7 +215,10 @@ struct MainTabs: View {
                 break
             }
         }
+        // Issues kept on a page by "Only My Issues" go once you go to another page or view, as on the Mac.
+        .onChange(of: navigation.issuesPage) { _, _ in model.forgetKeptMine() }
         .onChange(of: model.selectedViewIds) { _, _ in
+            model.forgetKeptMine()
             if case .view(let projectId, let id) = navigation.tab, let view = model.currentView(projectId: projectId), view.id != id {
                 navigation.tab = .view(projectId: projectId, viewId: view.id)
             }
@@ -407,7 +410,7 @@ struct MainTabs: View {
                 Label {
                     Text(.roadmap)
                 } icon: {
-                    Image(uiImage: PlanningImages.roadmap(scheme))
+                    Image(uiImage: RoadmapSymbol.image)
                 }
             }
             .customizationID("roadmap.\(project.id)")
@@ -417,7 +420,7 @@ struct MainTabs: View {
 
     /// A view's layout, as the sidebar's icons are images.
     private func layoutImage(of view: ProjectView) -> Image {
-        guard let symbol = model.layoutSymbol(of: view) else { return Image(uiImage: PlanningImages.roadmap(scheme)) }
+        guard let symbol = model.layoutSymbol(of: view) else { return Image(uiImage: RoadmapSymbol.image) }
         return Image(systemName: symbol)
     }
 
@@ -548,7 +551,9 @@ struct SidebarAccountFoot: View {
             Button {
                 navigation.sheet = .account
             } label: {
-                HStack(spacing: 11) {
+                // 46 pt to the middle of the picture and 70 pt to the name, as the rows have to their symbols' middle
+                // and their titles.
+                HStack(spacing: 9) {
                     StatusAvatar(size: 30)
                     VStack(alignment: .leading, spacing: 1) {
                         Text(model.viewerName)
@@ -697,6 +702,14 @@ struct MobileCommands: Commands {
             .disabled(navigation == nil || !model.signedIn || model.openProjects.isEmpty)
         }
         UndoCommands(model: model)
+        CommandGroup(before: .toolbar) {
+            // Boards and lists with only your issues, from anywhere, as the person button in the bar.
+            Toggle(isOn: Binding(get: { model.onlyMine }, set: { model.onlyMine = $0 })) {
+                Text(.onlyMyIssues)
+            }
+            .keyboardShortcut("m", modifiers: [.command, .shift])
+            .disabled(navigation == nil || !model.signedIn || model.viewer == nil)
+        }
         CommandMenu(Text(.goMenu)) {
             let unavailable = navigation == nil || !model.signedIn
             // The board is on wide windows only, and switches the project on screen.
