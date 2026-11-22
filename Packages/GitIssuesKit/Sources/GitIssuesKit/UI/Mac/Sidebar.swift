@@ -6,7 +6,7 @@ import SwiftUI
 enum SidebarSelection: Hashable {
     case inbox
     case myIssues
-    /// A project before its views have been read: its board.
+    /// Opens a project on the view last used there, or its board while the views load.
     case board(String)
     case view(projectId: String, viewId: String)
     case milestone(projectId: String, title: String)
@@ -14,10 +14,7 @@ enum SidebarSelection: Hashable {
     case allIssues(String)
 }
 
-/// The system's sidebar, as in Notes and Mail: Search, then the Inbox and My Issues, which cover every project; then
-/// the project the sidebar is about under its own name and menu, with All Issues and its views, and its next
-/// milestones with the roadmap; and you at the foot, with how syncing is going. One project at a time, as Linear shows
-/// one workspace.
+/// Search, the Inbox and My Issues, then the projects and the current project's views and milestones.
 struct Sidebar: View {
     @Environment(AppModel.self) private var model
 
@@ -35,6 +32,7 @@ struct Sidebar: View {
                     .tag(SidebarSelection.myIssues)
                     .sidebarReselect(.myIssues, current: current)
             }
+            SidebarProjects(current: current)
             if let project = model.sidebarProject {
                 SidebarProject(project: project, current: current)
             }
@@ -173,8 +171,7 @@ struct SidebarGrid {
     var title: CGFloat
     /// How large a second line under a name is: the project's repositories, how syncing is going.
     var detail: CGFloat
-    /// From the line above the project, at the top of its row, to the project's button: so that the tile stands as
-    /// far under the line as My Issues' symbol stands above it.
+    /// From the line above the current project to the project's button.
     var headGap: CGFloat
 
     init(_ size: SidebarRowSize) {

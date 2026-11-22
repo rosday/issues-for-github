@@ -2,8 +2,77 @@
 import AppKit
 import SwiftUI
 
-/// One project at a time in the sidebar, under the Inbox and My Issues: its name with its menu, All Issues and its
-/// views, then its next milestones with the roadmap, each a section of the list.
+/// Every open project is a destination. Hidden projects can be revealed, and one opened elsewhere stays available.
+struct SidebarProjects: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    var current: SidebarSelection?
+    @State private var hiddenOpen = false
+
+    var body: some View {
+        let shown = model.shownProjects
+        let hidden = model.hiddenProjects
+        if !shown.isEmpty || !hidden.isEmpty {
+            Section {
+                ForEach(shown) { project in
+                    SidebarProjectRow(project: project, current: current)
+                }
+                if !hidden.isEmpty {
+                    Button {
+                        withAnimation(reduceMotion ? nil : Theme.spring) { hiddenOpen.toggle() }
+                    } label: {
+                        Label {
+                            Text(.hiddenProjectsCount(count: hidden.count))
+                        } icon: {
+                            Image(systemName: hiddenOpen ? "eye" : "eye.slash")
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .foregroundStyle(Theme.textSecondary)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .selectionDisabled()
+                    .accessibilityValue(Text(hiddenOpen ? .sectionOpen : .sectionFolded))
+                    .accessibilityIdentifier("sidebar-hidden-projects")
+                }
+                ForEach(hidden.filter { hiddenOpen || $0.id == model.scope?.projectId }) { project in
+                    SidebarProjectRow(project: project, current: current)
+                }
+            } header: {
+                Text(.projects)
+            }
+        }
+    }
+}
+
+private struct SidebarProjectRow: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.sidebarRowSize) private var rowSize
+    var project: Project
+    var current: SidebarSelection?
+    @State private var iconOpen = false
+
+    var body: some View {
+        let row = SidebarSelection.board(project.id)
+        Label {
+            Text(project.title).lineLimit(1)
+        } icon: {
+            ProjectIcon(projectId: project.id, size: SidebarGrid(rowSize).glyph)
+        }
+        .help("\(project.title) · \(model.repositoryLine(of: project))")
+        .accessibilityIdentifier("sidebar-project-\(project.id)")
+        .dropdown(isPresented: $iconOpen) { close in
+            ProjectIconPicker(projectId: project.id, close: close)
+        }
+        .glassSidebarMenu { [model, project, $iconOpen] in
+            projectSidebarMenu(project, model: model) { $iconOpen.wrappedValue = true }
+        }
+        .sidebarReselect(row, current: current)
+        .tag(row)
+    }
+}
+
+/// The current project's menu, All Issues and saved views, then its next milestones and roadmap.
 struct SidebarProject: View {
     @Environment(AppModel.self) private var model
     var project: Project
@@ -24,9 +93,8 @@ struct SidebarProject: View {
 
 // MARK: - The project's menu
 
-/// The project the sidebar is about, at the head of its part, under a line that sets it apart from the Inbox and My
-/// Issues: its icon on a tile, its name, and the repositories its issues come from. A click opens its menu with the
-/// other projects to switch to and what can be done with this one; right-click gives the same actions.
+/// The project the sidebar is about, at the head of its views: its icon on a tile, its name and repositories.
+/// A click opens its menu with other projects and actions for this one.
 struct ProjectMenuButton: View {
     @Environment(AppModel.self) private var model
     @Environment(\.sidebarRowSize) private var rowSize
@@ -36,7 +104,6 @@ struct ProjectMenuButton: View {
     @State private var hovering = false
 
     var body: some View {
-        let hidden = model.hiddenProjectIds.contains(project.id)
         let repositories = model.repositoryLine(of: project)
         let grid = SidebarGrid(rowSize)
         VStack(alignment: .leading, spacing: 0) {
@@ -102,30 +169,34 @@ struct ProjectMenuButton: View {
                 ProjectIconPicker(projectId: project.id, close: close)
             }
             .onChange(of: model.projectIconRequest) { iconOpen = true }
-            .glassSidebarMenu { [model, project, hidden, $iconOpen] in
-                let menu = MenuBuilder()
-                menu.item(.changeIconEllipsis, "paintpalette") { $iconOpen.wrappedValue = true }
-                menu.divider()
-                if hidden {
-                    menu.item(.showInSidebar, "eye") { model.setHidden(project, false) }
-                } else {
-                    menu.item(.hideFromSidebar, "eye.slash") { model.setHidden(project, true) }
-                }
-                if project.viewerCanUpdate {
-                    menu.divider()
-                    menu.item(.newMilestoneEllipsis, "plus") {
-                        model.overlay = .milestoneEditor(projectId: project.id, title: nil, assigning: [])
-                    }
-                }
-                menu.divider()
-                menu.item(.copyLink, "link") { model.copyLink(project.url, for: project.title) }
-                menu.item(.openOnGitHub, "arrow.up.right.square") {
-                    if let url = URL(string: project.url) { NSWorkspace.shared.open(url) }
-                }
-                return menu.build()
+            .glassSidebarMenu { [model, project, $iconOpen] in
+                projectSidebarMenu(project, model: model) { $iconOpen.wrappedValue = true }
             }
         }
     }
+}
+
+@MainActor
+private func projectSidebarMenu(_ project: Project, model: AppModel, changeIcon: @escaping () -> Void) -> NSMenu {
+    let hidden = model.hiddenProjectIds.contains(project.id)
+    let menu = MenuBuilder()
+    menu.item(.changeIconEllipsis, "paintpalette", action: changeIcon)
+    menu.divider()
+    menu.item(hidden ? .showInSidebar : .hideFromSidebar, hidden ? "eye" : "eye.slash") {
+        model.setHidden(project, !hidden)
+    }
+    if project.viewerCanUpdate {
+        menu.divider()
+        menu.item(.newMilestoneEllipsis, "plus") {
+            model.overlay = .milestoneEditor(projectId: project.id, title: nil, assigning: [])
+        }
+    }
+    menu.divider()
+    menu.item(.copyLink, "link") { model.copyLink(project.url, for: project.title) }
+    menu.item(.openOnGitHub, "arrow.up.right.square") {
+        if let url = URL(string: project.url) { NSWorkspace.shared.open(url) }
+    }
+    return menu.build()
 }
 
 /// Lays out its content as it is, but has a label set its icon beside the middle of it rather than beside its first
@@ -396,13 +467,6 @@ private struct SidebarViews: View {
                 .selectionDisabled()
                 .listRowInsets(.vertical, 0)
             AllIssuesRow(projectId: project.id, current: current)
-            if views.isEmpty {
-                // Until GitHub's views have been read: the board, as before there were views.
-                let row = SidebarSelection.board(project.id)
-                Label { Text(.board) } icon: { Image(systemName: "rectangle.split.3x1") }
-                    .tag(row)
-                    .sidebarReselect(row, current: current)
-            }
             ForEach(views) { view in
                 SidebarViewRow(
                     view: view, current: current, renaming: $renaming,
